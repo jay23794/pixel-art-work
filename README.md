@@ -3,7 +3,7 @@
 Renders 16-bit pixel-art scenes from JSON scene descriptions into MP4 video.
 Logical canvas 270×480, exported at 1080×1920 (4× nearest-neighbour), 24 fps.
 
-> Status: Desert Lab renders from `scenes/desert-lab.json` and exports to MP4.
+> Status: Desert Lab (`scenes/desert-lab.json`), Laboratory (`scenes/laboratory.json`) and Rainy City (`scenes/rainy-city.json`) render through the same engine and export to MP4.
 
 ## Requirements
 
@@ -25,14 +25,14 @@ npx playwright install chromium   # headless browser for frame capture and e2e t
 
 | Command             | What it does                                  |
 | ------------------- | --------------------------------------------- |
-| `npm run render -- <scene.json>` | Export MP4 + frame-hash manifest (see Export) |
+| `npm run render -- <scene.json\|sequence.json>` | Export MP4 + frame-hash manifest (see Export, Sequences) |
 | `npm run import -- <export> --id <id>` | Import a FrameBaker spritesheet as an asset (see Assets) |
 | `npm run dev`       | Preview at http://localhost:5173 (`?scene=desert-lab&frame=N`; console: `renderFrame(n)`) |
 | `npm run build`     | Type-check, then production build into `dist/` |
 | `npm test`          | Unit tests (Vitest, `tests/**/*.test.ts`)     |
 | `npm run typecheck` | `tsc --noEmit` (strict)                       |
 | `npm run lint`      | ESLint (typescript-eslint, strict)            |
-| `npm run capture:golden -- v1` | Render the golden frames; refuses to overwrite without `--update` |
+| `npm run capture:golden -- <v1\|laboratory\|rainy-city>` | Render a golden frame set; refuses to overwrite without `--update` |
 
 Playwright e2e specs go in `tests/e2e/` and run with `npx playwright test`.
 
@@ -42,9 +42,11 @@ Playwright e2e specs go in `tests/e2e/` and run with `npx playwright test`.
 src/core/        app, renderer, seeded random, frame context
 src/scene/       scene schema (zod), loader, factory, component registry
 src/components/  scene building blocks (+ post effects in post.ts)
+src/components/environments/  environment generators (city, desert, laboratory)
 src/camera/      keyframed camera, whole-pixel parallax
 src/video/       MP4 export: renderer page, Playwright capture, FFmpeg encoding, CLI
 scenes/          JSON scene files (composition only)
+sequences/       JSON shot lists that cut scenes together into one video
 assets/sprites/  sprite/animation assets (<id>.json + <id>.png)
 src/assets/      asset contract, registry, preloader, cleanup, FrameBaker importer
 legacy/          original Desert Lab files (scene.html is the music-free reference)
@@ -66,7 +68,8 @@ A scene is one JSON file in `scenes/`, validated by `src/scene/schema.ts`
 | `palette` | Named colours `"#rrggbb"`; use them anywhere in params as `"$name"` |
 | `signals` | Named time-varying values, used in params as `"@name"` (see below) |
 | `camera.keyframes` | `{ time, x, y, easing }`. `x` = camera position (+ right), `y` = world y at screen centre. Easing applies from the previous keyframe. |
-| `layers` | Ordered, back to front: `{ id, space: world\|screen, x, y, parallax, components: [{ id, type, ...params }] }` |
+| `environment` | Optional generator that builds the world layers: `{ type, ...config }` (see Environments). |
+| `layers` | Drawn on top of the environment's layers, back to front: `{ id, space: world\|screen, x, y, parallax, components: [{ id, type, ...params }] }` |
 | `post` | Ordered effects on the world: `grade`, `noise` |
 | `events` | One-off moments: `{ time, target, action, params }`, e.g. `launch` (shooting star), `fadeIn`/`fadeOut` |
 
@@ -78,6 +81,9 @@ stays deterministic:
   its time; before that, the first key's value.
 - `curve`: `(base + pulse·ctx.pulse) × (envBase + env·ctx.env) × gate`. `gate`
   is an optional `"@signal"` defined above it.
+- `flicker`: `{ "speed": 23, "threshold": -0.85, "dim": 0.25, "pulseAbove": 0.5 }`
+  is 1 while `sin(t·speed + phase) > threshold` (or `pulse > pulseAbove`), otherwise
+  `dim`. It's a faulty neon tube; use it as a curve's `gate`.
 
 Params that take a level or power (e.g. `lightPool.level`, `dust.power`) accept
 a number or `"@name"`.
@@ -92,6 +98,80 @@ pixels, so every layer lands on whole pixels. Component types, their params and
 the actions they accept are defined next to each component (`params`, `actions`)
 and listed in `src/scene/registry.ts`. Errors name the JSON path, e.g.
 `layers[0].components[1].type: unknown component type "sparkle" (known: …)`.
+
+## Environments
+
+An environment generator (`EnvironmentGenerator` in `src/core/environment.ts`)
+turns a config and its own random stream into layers of components. Those are
+plain scene data, `{ id, type, ...params }`, validated exactly like hand-written
+layers. Generators live in `src/components/environments/` and are listed in
+`ENVIRONMENTS` in `src/scene/registry.ts`. The engine has no scene-specific code.
+
+```json
+"environment": { "type": "laboratory", "monitors": 3, "power": { "lights": "@mains" } }
+```
+
+- Generated layers are drawn first. The scene's own `layers` go on top, e.g. a vignette/fade overlay.
+- Each generator has a default palette. The scene's `palette` overrides it by name.
+- The generator's rng is `createRng(deriveSeed(seed, "environment:<type>"))`.
+  Generated components still draw from their own per-id streams.
+- Errors in generated content are reported under `environment`, e.g.
+  `environment.layers[1].components[5].power`.
+
+| Type | Config (all optional) |
+| --- | --- |
+| `desert` | `lights.{power, windows, bulbs, bulbGlow}`: signals that drive the camp lights (defaults `@lightsOn`, `@windowLight`, `@bulbsOn`, `@bulbGlow`) |
+| `city` | `width`, `height`, `groundY`, `sign.{x,y}`, `streetlight.x`, `rain` (drop count), `levels.{neon, lamp, windows}` |
+| `laboratory` | `width`, `height`, `ceilingY`, `floorY`, `window.{x,y,width,height}`, `bench.{x,y,width}`, `monitors` (0–4), `lights` (0–4), `glassware` (0–12), `faultyLight`, `power.{lights, screens}` |
+
+The laboratory's rng picks the screen modes (`wave`, `bars`, `code`, `radar`),
+monitor sizes and positions, the glassware, and which ceiling light flickers.
+Its component types (`wall`, `floor`, `window`, `workbench`, `monitor`,
+`ceilingLight`) can also be used directly in `layers`.
+
+The city follows the motel and streetlight scenes of `legacy/render.py` at 2× its
+135×240 canvas. Its rng lays out two rows of buildings. Component types:
+`buildings` (lit windows, each lit while `floor(phase + t·rate) mod 3 ≠ 0`),
+`neonSign` (tubes and a chasing arrow), `steppedGlow` (additive glow, `(1 − d)²`
+rounded to `levels` = 4 rings), `streetlight` (cone and pool), `reflection` (wet
+ground: darkened rows with a rippling stripe of the light's colour) and `rain`
+(slanted streaks, tinted inside light cones). The banded sky is `sky` with one band
+per row and `steps: 4`, which is the reference's `round(f·4)/4` gradient.
+`scenes/rainy-city.json` drives the sign, its glow and its reflection from one
+`flicker`-gated `@neon` signal, so they all flicker together.
+
+## Sequences
+
+A sequence (`sequences/<name>.json`, validated by `src/scene/sequence.ts`) plays
+shots back to back in one video. Each shot shows a time range of a scene, on the
+scene's own clock:
+
+```json
+{ "version": 1, "id": "tour", "shots": [
+  { "scene": "desert-lab", "start": 5,  "end": 15, "transition": "fade" },
+  { "scene": "laboratory", "start": 16, "end": 26, "transition": "fade" },
+  { "scene": "rainy-city", "start": 30, "end": 40, "transition": { "type": "flash", "duration": 0.5 } }
+] }
+```
+
+- `scene` names `scenes/<scene>.json`. The shot shows `[start, end)`, and both must
+  land on a frame. Every scene in a sequence must share the size and fps.
+- `transition` is how the shot is entered (default `cut`):
+  - `fade` (default 1s): the previous shot fades to solid black over the first
+    half, then this shot fades up over the second half. On the first shot it fades
+    up from black.
+  - `flash` (default 0.5s): starts solid white and eases out.
+  - `{ "type", "duration" }` sets the length in seconds.
+- The video is the sum of the shot lengths (`tour`: 30s). Shot frames are the
+  scenes' own frames, so untouched frames are pixel-identical to each scene
+  rendered alone. Transitions are blended into the captured pixels afterwards with
+  integer maths (`applyOverlay`).
+
+```bash
+npm run render -- sequences/tour.json     # → out/tour.mp4 (desert → lab → city)
+```
+
+The manifest also lists each shot's output frames.
 
 ## Assets
 
@@ -172,8 +252,10 @@ another frame, run `renderFrame(600)` in the browser console (frame n = t n/24 s
 
 ## Golden frames and regression test
 
-`tests/golden/v1/` holds reference PNGs (270×480) of frames
-0, 24, 120, 240, 480, 720 and 900, rendered from `scenes/desert-lab.json`.
+`tests/golden/<set>/` holds reference PNGs (270×480) of frames
+0, 24, 120, 240, 480, 720 and 900: `v1` from `scenes/desert-lab.json`,
+`laboratory` from `scenes/laboratory.json`, `rainy-city` from `scenes/rainy-city.json`
+(see `GOLDEN_SCENES` in `scripts/golden.ts`).
 
 `tests/regression.test.ts` (part of `npm test`) renders the same frames (through
 the real loader and factory on a private Vite server) in headless Chromium with
@@ -186,6 +268,6 @@ unchanged after the run.
 every other component's rendered output unchanged.
 
 ```bash
-npm run capture:golden -- v1            # writes all frames; refuses if any already exist
-npm run capture:golden -- v1 --update   # overwrite. Only when a change to the look is approved.
+npm run capture:golden -- laboratory            # writes all frames; refuses if any already exist
+npm run capture:golden -- laboratory --update   # overwrite. Only when a change to the look is approved.
 ```

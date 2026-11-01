@@ -29,6 +29,24 @@ describe('evaluateSignals', () => {
     }
   });
 
+  it('flicker: legacy neon, 1 if sin(23t) > −0.85 or pulse > 0.5, else dim; gates a curve', () => {
+    const defs: [string, SignalDef][] = [
+      ['neonFlicker', { type: 'flicker', speed: 23, phase: 0, threshold: -0.85, dim: 0.25, pulseAbove: 0.5 }],
+      ['neon', { type: 'curve', base: 0.65, pulse: 0.35, envBase: 1, env: 0, gate: 'neonFlicker' }],
+    ];
+    const seen = new Set<number>();
+    for (let n = 0; n <= 960; n++) {
+      const t = n / 24;
+      const p = 0.5 + 0.5 * Math.sin(t * 2);
+      const fl = Math.sin(t * 23) > -0.85 || p > 0.5 ? 1 : 0.25;
+      const s = at(defs, t);
+      expect(s.neonFlicker).toBe(fl);
+      expect(s.neon).toBe((0.65 + 0.35 * p) * 1 * fl);
+      seen.add(fl);
+    }
+    expect([...seen].sort()).toEqual([0.25, 1]);
+  });
+
   it('is a pure function of its inputs', () => {
     expect(at(steps, 12.5)).toEqual(at(steps, 12.5));
   });

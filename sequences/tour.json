@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "tour",
+  "shots": [
+    {"scene": "desert-lab", "start": 5, "end": 15, "transition": "fade"},
+    {"scene": "laboratory", "start": 16, "end": 26, "transition": "fade"},
+    {"scene": "rainy-city", "start": 30, "end": 40, "transition": {"type": "flash", "duration": 0.5}}
+  ]
+}

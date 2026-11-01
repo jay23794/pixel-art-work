@@ -25,6 +25,18 @@ export type SignalDef =
       readonly env: number;
       /** Name of a signal defined earlier, multiplied in last (e.g. an on/off switch). */
       readonly gate?: string;
+    }
+  /**
+   * Faulty tube: 1 while sin(t·speed + phase) > threshold (or pulse > pulseAbove,
+   * if set), otherwise dim. Multiply it into a curve with `gate`.
+   */
+  | {
+      readonly type: 'flicker';
+      readonly speed: number;
+      readonly phase: number;
+      readonly threshold: number;
+      readonly dim: number;
+      readonly pulseAbove?: number;
     };
 
 /** Evaluates signals in definition order (a gate can only use an earlier signal). */
@@ -35,6 +47,9 @@ export function evaluateSignals(defs: readonly (readonly [string, SignalDef])[],
       let v = def.keys[0]?.[1] ?? 0;
       for (const [time, value] of def.keys) if (x.t > time) v = value;
       out[name] = v;
+    } else if (def.type === 'flicker') {
+      const lit = Math.sin(x.t * def.speed + def.phase) > def.threshold || (def.pulseAbove !== undefined && x.pulse > def.pulseAbove);
+      out[name] = lit ? 1 : def.dim;
     } else {
       const level = (def.base + def.pulse * x.pulse) * (def.envBase + def.env * x.env);
       out[name] = def.gate === undefined ? level : level * (out[def.gate] as number);

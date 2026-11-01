@@ -1,11 +1,12 @@
 import type { z } from 'zod';
 import type { Keyframe } from '../camera/camera.ts';
+import { createRng, deriveSeed } from '../core/random.ts';
 import type { SignalDef } from '../core/signals.ts';
 import { assetSchema, type AssetDef } from '../assets/contract.ts';
 import { bundledAssets } from '../assets/registry.ts';
 import type { SceneEvent } from './primitives.ts';
-import { COMPONENTS, POST_EFFECTS } from './registry.ts';
-import { sceneSchema, type SceneFile } from './schema.ts';
+import { COMPONENTS, ENVIRONMENTS, POST_EFFECTS } from './registry.ts';
+import { layerSchema, sceneSchema, type SceneFile } from './schema.ts';
 
 /** A validated scene with defaults applied, colours resolved and params parsed. */
 export interface SceneDef {
@@ -63,8 +64,11 @@ export function formatPath(path: Path): string {
 
 const list = (names: Iterable<string>): string => [...names].sort().join(', ');
 
+/** Seed of an environment generator's own stream. ":" can't appear in component ids, so it never matches a component's stream. */
+export const environmentSeed = (sceneSeed: number, type: string): number => deriveSeed(sceneSeed, `environment:${type}`);
+
 export interface LoadOptions {
-  /** Name used in error messages, e.g. "scenes/desert-lab.json". */
+  /** Name used in error messages, e.g. "scenes/<name>.json". */
   readonly source?: string;
   /** Assets by id (raw JSON). Defaults to the bundled assets/sprites/*.json. */
   readonly assets?: Readonly<Record<string, unknown>>;
@@ -96,6 +100,8 @@ export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
     fail();
   }
   const file = parsed.data as SceneFile;
+  // The environment's default colours, overridden by the scene's palette.
+  let palette: Record<string, string> = file.palette;
 
   // "$name" → palette colour, anywhere inside params. "@name" must be a defined signal (kept as is).
   const resolve = (value: unknown, path: Path): unknown => {
@@ -107,9 +113,9 @@ export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
       return value;
     }
     if (typeof value === 'string' && value.startsWith('$')) {
-      const c = file.palette[value.slice(1)];
+      const c = palette[value.slice(1)];
       if (c === undefined) {
-        add(path, `unknown palette colour "${value}" (palette: ${list(Object.keys(file.palette)) || 'empty'})`);
+        add(path, `unknown palette colour "${value}" (palette: ${list(Object.keys(palette)) || 'empty'})`);
         unresolved.add(formatPath(path));
       }
       return c ?? value;
@@ -138,13 +144,39 @@ export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
     return def;
   };
 
+  // Environment: generated layers go first, then the scene's own. Their errors are reported under "environment".
+  type FileLayer = SceneFile['layers'][number];
+  let generated: FileLayer[] = [];
+  if (file.environment) {
+    const { type, ...raw } = file.environment;
+    const gen = ENVIRONMENTS[type];
+    if (!gen) {
+      add(['environment', 'type'], `unknown environment "${type}" (known: ${list(Object.keys(ENVIRONMENTS))})`);
+    } else {
+      palette = { ...gen.palette, ...file.palette };
+      const p = gen.params.safeParse(resolve(raw, ['environment']));
+      if (!p.success) addZod(['environment'], p.error);
+      else {
+        const layers = layerSchema.array().safeParse(gen.generate(p.data as never, createRng(environmentSeed(file.seed, type))));
+        if (layers.success) generated = layers.data;
+        else addZod(['environment', 'layers'], layers.error);
+      }
+    }
+    // Without its layers, every reference to a generated component would be a follow-on error.
+    if (issues.length) fail();
+  }
+  const allLayers: { layer: FileLayer; path: Path }[] = [
+    ...generated.map((layer, i) => ({ layer, path: ['environment', 'layers', i] })),
+    ...file.layers.map((layer, i) => ({ layer, path: ['layers', i] })),
+  ];
+
   // Components: unique ids, known types, valid params.
   const declared = new Set<string>();
   const typeOf = new Map<string, string>();
   const parsedParams = new Map<string, Record<string, unknown>>();
-  file.layers.forEach((layer, li) => {
+  allLayers.forEach(({ layer, path: layerPath }) => {
     layer.components.forEach((entry, ci) => {
-      const path = ['layers', li, 'components', ci];
+      const path = [...layerPath, 'components', ci];
       const { id, type, ...raw } = entry;
       if (declared.has(id)) add([...path, 'id'], `duplicate component id "${id}"`);
       declared.add(id);
@@ -213,10 +245,14 @@ export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
     camera: { keyframes: file.camera.keyframes },
     signals: Object.entries(file.signals).map(([name, sig]): [string, SignalDef] => {
       if (sig.type === 'steps') return [name, { type: 'steps', keys: sig.keys }];
+      if (sig.type === 'flicker') {
+        const { speed, phase, threshold, dim, pulseAbove } = sig;
+        return [name, pulseAbove === undefined ? { type: 'flicker', speed, phase, threshold, dim } : { type: 'flicker', speed, phase, threshold, dim, pulseAbove }];
+      }
       const { base, pulse, envBase, env, gate } = sig;
       return [name, gate === undefined ? { type: 'curve', base, pulse, envBase, env } : { type: 'curve', base, pulse, envBase, env, gate: gate.slice(1) }];
     }),
-    layers: file.layers.map((l) => ({
+    layers: allLayers.map(({ layer: l }) => ({
       id: l.id,
       space: l.space,
       x: l.x,

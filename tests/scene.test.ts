@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { inlineEnvironment } from '../scripts/scene-render.ts';
 import { loadScene, SceneValidationError, type SceneDef } from '../src/scene/loader.ts';
 
 // The invalid-scene tests write deliberately wrong types into the JSON, so it is untyped here.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = Record<string, any>;
 
-const raw = (): Json => JSON.parse(readFileSync(new URL('../scenes/desert-lab.json', import.meta.url), 'utf8'));
+const file = (): Json => JSON.parse(readFileSync(new URL('../scenes/desert-lab.json', import.meta.url), 'utf8'));
+/** desert-lab.json with its environment inlined as hand-written layers, so tests can break individual components. */
+const raw = (): Json => inlineEnvironment(file());
 
 /** Loads a modified copy of desert-lab.json and returns the validation issues. */
 function issuesFor(mutate: (s: Json) => void): { path: string; message: string }[] {
@@ -24,7 +27,11 @@ function issuesFor(mutate: (s: Json) => void): { path: string; message: string }
 const component = (def: SceneDef, id: string) => def.layers.flatMap((l) => l.components).find((c) => c.id === id);
 
 describe('loadScene: scenes/desert-lab.json', () => {
-  const def = loadScene(raw());
+  const def = loadScene(file());
+
+  it('loads the same as with its environment written out by hand', () => {
+    expect(def).toEqual(loadScene(raw()));
+  });
 
   it('loads with output size and a whole-number upscale', () => {
     expect(def.output).toMatchObject({ width: 1080, height: 1920, logicalWidth: 270, logicalHeight: 480, fps: 24, duration: 40, scale: 4 });
@@ -106,7 +113,7 @@ describe('loadScene: invalid scenes fail with the JSON path and a useful message
 
   it('unknown component type', () => {
     expect(issuesFor((s) => (s.layers[0].components[1].type = 'sparkle'))).toEqual([
-      { path: 'layers[0].components[1].type', message: expect.stringMatching(/unknown component type "sparkle" \(known: dust, fade, .*sky, smoke, sprite, .*windowLights\)$/) },
+      { path: 'layers[0].components[1].type', message: expect.stringMatching(/unknown component type "sparkle" \(known: buildings, ceilingLight, dust, fade, .*sky, smoke, sprite, .*windowLights, workbench\)$/) },
     ]);
   });
 

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openHarness, readScene, type Harness } from '../scripts/scene-render.ts';
+import { inlineEnvironment, openHarness, readScene, type Harness } from '../scripts/scene-render.ts';
 
 // Adding or removing a component must not change any other component's output:
 // each component draws from its own stream, createRng(deriveSeed(seed, id)).
@@ -30,7 +30,8 @@ const HASH_COMPONENTS = `async ({ scene, ids, frames }) => {
   return out;
 }`;
 
-const scene = (): Json => readScene('desert-lab') as Json;
+// The desert's components come from its generator; inlined here so the test can add and remove them.
+const scene = (): Json => inlineEnvironment(readScene('desert-lab')) as Json;
 const ids = (s: Json): string[] => s.layers.flatMap((l) => l.components.map((c) => c.id as string));
 
 /** A milkyWay-type component that draws 500 random numbers: inserted first, it shifts every later draw in a shared stream. */

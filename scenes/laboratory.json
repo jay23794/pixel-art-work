@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "id": "laboratory",
+  "seed": 7,
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "logicalWidth": 270,
+    "logicalHeight": 480,
+    "fps": 24,
+    "duration": 40,
+    "background": "#000000"
+  },
+  "signals": {
+    "mains": {"type": "steps", "keys": [[0, 0], [0.6, 1], [0.75, 0], [0.9, 1], [1.0, 0], [1.2, 1]]},
+    "screens": {"type": "steps", "keys": [[0, 0], [2, 1]]}
+  },
+  "camera": {
+    "keyframes": [{"time": 0, "x": 0, "y": 240}]
+  },
+  "environment": {
+    "type": "laboratory",
+    "power": {"lights": "@mains", "screens": "@screens"}
+  },
+  "layers": [
+    {
+      "id": "overlay",
+      "space": "screen",
+      "components": [
+        {
+          "id": "vignette",
+          "type": "vignette",
+          "color": "$black",
+          "cx": 0.5,
+          "cy": 0.5,
+          "inner": 0.25,
+          "outer": 0.8,
+          "alpha": 0.55
+        },
+        {"id": "fade", "type": "fade", "color": "$black"}
+      ]
+    }
+  ],
+  "post": [
+    {"type": "noise", "amount": 0.04, "seed": 0.5, "cycle": 11}
+  ],
+  "events": [
+    {"time": 0, "target": "fade", "action": "fadeIn", "params": {"duration": 1}},
+    {"time": 38.5, "target": "fade", "action": "fadeOut", "params": {"duration": 1.5}}
+  ]
+}

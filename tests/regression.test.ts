@@ -3,14 +3,14 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { PNG } from 'pngjs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { GOLDEN_FRAMES, goldenPath, ROOT, type FrameRenderer, type GoldenSet } from '../scripts/golden.ts';
+import { GOLDEN_FRAMES, GOLDEN_SCENES, goldenPath, ROOT, type FrameRenderer, type GoldenSet } from '../scripts/golden.ts';
 import { openScene } from '../scripts/scene-render.ts';
 
 // This test only ever READS tests/golden/. It never creates or updates a golden
 // frame: a missing one is a failure. To (re)generate them, see scripts/capture-golden.ts.
 
 const GOLDEN_ROOT = join(ROOT, 'tests', 'golden');
-const SET: GoldenSet = 'v1';
+const SETS = Object.keys(GOLDEN_SCENES) as GoldenSet[];
 
 /** Path → "sha256 mtimeMs size" for every file under tests/golden/. */
 function snapshotGolden(): Record<string, string> {
@@ -29,8 +29,8 @@ function snapshotGolden(): Record<string, string> {
   return out;
 }
 
-function readGolden(n: number): PNG {
-  const file = goldenPath(n, SET);
+function readGolden(n: number, set: GoldenSet): PNG {
+  const file = goldenPath(n, set);
   if (!existsSync(file)) {
     throw new Error(`golden frame missing: ${relative(ROOT, file)} (tests never create it; see scripts/capture-golden.ts)`);
   }
@@ -53,27 +53,30 @@ function countDiffPixels(a: PNG, b: PNG): number {
   return diff;
 }
 
-describe(`Desert Lab matches the ${SET} golden frames`, () => {
-  const before = snapshotGolden();
+const before = snapshotGolden();
+
+describe.each(SETS)('golden set %s', (set) => {
   let scene: FrameRenderer;
   beforeAll(async () => {
-    scene = await openScene('desert-lab');
+    scene = await openScene(GOLDEN_SCENES[set]);
   }, 60_000);
   afterAll(async () => {
     await scene?.close();
   });
 
-  it.each(GOLDEN_FRAMES)('frame %i', async (n) => {
-    const golden = readGolden(n);
+  it.each(GOLDEN_FRAMES)(`${set} frame %i`, async (n) => {
+    const golden = readGolden(n, set);
     const actual = PNG.sync.read(await scene.render(n));
     expect([actual.width, actual.height], 'frame size').toEqual([golden.width, golden.height]);
     const diff = countDiffPixels(actual, golden);
     expect(diff, `frame ${n}: ${diff} of ${golden.width * golden.height} pixels differ`).toBe(0);
   }, 30_000);
+});
 
-  // Runs last (tests in a file run in order): the run must not touch tests/golden/.
+// Runs last (tests in a file run in order): the run must not touch tests/golden/.
+describe('golden frames', () => {
   it('leaves tests/golden/ unchanged (same files, hashes and mtimes)', () => {
-    expect(Object.keys(before).length).toBeGreaterThanOrEqual(GOLDEN_FRAMES.length);
+    expect(Object.keys(before).length).toBeGreaterThanOrEqual(GOLDEN_FRAMES.length * SETS.length);
     expect(snapshotGolden()).toEqual(before);
   });
 });

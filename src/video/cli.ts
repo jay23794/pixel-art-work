@@ -1,8 +1,8 @@
-// npm run render -- <scene.json> [--out out/<name>.mp4] [--from N] [--to M]
+// npm run render -- <scene.json|sequence.json> [--out out/<name>.mp4] [--from N] [--to M]
 import { basename, extname, relative } from 'node:path';
 import { renderVideo } from './render.ts';
 
-const USAGE = 'Usage: npm run render -- <scene.json> [--out out/<name>.mp4] [--from N] [--to M]   (frames inclusive)';
+const USAGE = 'Usage: npm run render -- <scene.json|sequence.json> [--out out/<name>.mp4] [--from N] [--to M]   (frames inclusive)';
 
 function parseArgs(argv: string[]): { scene: string; out: string; from?: number; to?: number } {
   let scene: string | undefined;
@@ -57,6 +57,7 @@ async function main(): Promise<void> {
   const { timing: t, manifest: m } = result;
   const frames = m.to - m.from + 1;
   console.log(`rendered ${frames} frames (${m.from}–${m.to}) of ${m.scene}`);
+  for (const s of m.shots ?? []) console.log(`  shot      frames ${s.frames[0]}–${s.frames[1]}: ${s.scene} ${s.start}–${s.end}s (${s.transition.type})`);
   console.log(`  video     ${relative(process.cwd(), result.out)}`);
   console.log(`  hashes    ${relative(process.cwd(), result.manifestPath)}  (digest ${m.digest.slice(0, 16)}…)`);
   console.log(

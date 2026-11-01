@@ -3,23 +3,19 @@
 //   npm run capture:golden -- <set>             writes the frames; refuses if any already exist
 //   npm run capture:golden -- <set> --update    overwrites existing frames
 //
-// Sets: v1 (scenes/desert-lab.json).
+// Sets: see GOLDEN_SCENES in scripts/golden.ts (v1 = desert-lab, laboratory = laboratory).
 // Only use --update when a task explicitly asks to update reference frames.
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { relative } from 'node:path';
-import { GOLDEN_FRAMES, goldenDir, goldenPath, type FrameRenderer, type GoldenSet } from './golden.ts';
+import { GOLDEN_FRAMES, GOLDEN_SCENES, goldenDir, goldenPath, type GoldenSet } from './golden.ts';
 import { openScene } from './scene-render.ts';
-
-const RENDERERS: Record<GoldenSet, () => Promise<FrameRenderer>> = {
-  v1: () => openScene('desert-lab'),
-};
 
 const args = process.argv.slice(2);
 const update = args.includes('--update');
 const set = args.find((a) => !a.startsWith('--')) as GoldenSet | undefined;
-if (!set || !(set in RENDERERS)) {
-  console.error(`Usage: npm run capture:golden -- <${Object.keys(RENDERERS).join('|')}> [--update]`);
+if (!set || !(set in GOLDEN_SCENES)) {
+  console.error(`Usage: npm run capture:golden -- <${Object.keys(GOLDEN_SCENES).join('|')}> [--update]`);
   process.exit(1);
 }
 
@@ -34,7 +30,7 @@ if (existing.length && !update) {
 }
 
 await mkdir(goldenDir(set), { recursive: true });
-const scene = await RENDERERS[set]();
+const scene = await openScene(GOLDEN_SCENES[set]);
 try {
   for (const n of GOLDEN_FRAMES) {
     const file = goldenPath(n, set);

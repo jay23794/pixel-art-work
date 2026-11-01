@@ -63,12 +63,21 @@ const signalSchema = z.discriminatedUnion('type', [
     env: z.number().default(0),
     gate: z.string().regex(/^@[A-Za-z][\w-]*$/, 'expected a signal reference "@name"').optional(),
   }),
+  /** 1 while sin(t·speed + phase) > threshold (or pulse > pulseAbove), otherwise dim. */
+  z.strictObject({
+    type: z.literal('flicker'),
+    speed: z.number().positive(),
+    phase: z.number().default(0),
+    threshold: z.number().min(-1).max(1),
+    dim: z.number().min(0).max(1),
+    pulseAbove: z.number().optional(),
+  }),
 ]);
 export type SignalSchema = z.infer<typeof signalSchema>;
 
 const componentEntry = z.looseObject({ id, type: z.string() });
 
-const layerSchema = z.strictObject({
+export const layerSchema = z.strictObject({
   id,
   /** world: moves with the camera and gets the post effects. screen: fixed overlay on top. */
   space: z.enum(['world', 'screen']).default('world'),
@@ -90,6 +99,9 @@ const eventSchema = z.strictObject({
 
 const postEntry = z.looseObject({ type: z.string() });
 
+/** { type, ...config }: a generator (see src/core/environment.ts) whose layers go under the scene's own. */
+const environmentEntry = z.looseObject({ type: z.string() });
+
 export const sceneSchema = z
   .strictObject({
     version: z.literal(1),
@@ -102,13 +114,17 @@ export const sceneSchema = z
     /** Named time-varying values, referenced from params as "@name". Evaluated in this order every frame. */
     signals: z.record(id, signalSchema).default({}),
     camera: z.strictObject({ keyframes: z.array(keyframeSchema).min(1) }),
-    layers: z.array(layerSchema).min(1),
+    /** Generated layers, drawn first (back). Config is validated by the loader against the environment registry. */
+    environment: environmentEntry.optional(),
+    /** Drawn on top of the environment's layers. At least one layer unless there is an environment. */
+    layers: z.array(layerSchema).default([]),
     /** Post-processing on the world, in order: [{ type, ...params }]. */
     post: z.array(postEntry).default([]),
     events: z.array(eventSchema).default([]),
   })
   .superRefine((s, ctx) => {
     const d = s.output.duration;
+    if (!s.environment && s.layers.length === 0) ctx.addIssue({ code: 'custom', path: ['layers'], message: 'a scene needs an environment or at least one layer' });
     s.camera.keyframes.forEach((k, i) => {
       if (k.time > d) ctx.addIssue({ code: 'custom', path: ['camera', 'keyframes', i, 'time'], message: `keyframe at ${k.time}s is beyond the scene duration (${d}s)` });
       const prev = s.camera.keyframes[i - 1];
@@ -124,7 +140,7 @@ export const sceneSchema = z
           if (prev && t <= prev[0])
             ctx.addIssue({ code: 'custom', path: ['signals', name, 'keys', i, 0], message: `key times must increase (${t}s follows ${prev[0]}s)` });
         });
-      } else if (sig.gate !== undefined && !defined.has(sig.gate.slice(1))) {
+      } else if (sig.type === 'curve' && sig.gate !== undefined && !defined.has(sig.gate.slice(1))) {
         ctx.addIssue({
           code: 'custom',
           path: ['signals', name, 'gate'],

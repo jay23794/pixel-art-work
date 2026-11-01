@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "id": "rainy-city",
+  "seed": 23,
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "logicalWidth": 270,
+    "logicalHeight": 480,
+    "fps": 24,
+    "duration": 40,
+    "background": "#000000"
+  },
+  "signals": {
+    "neonFlicker": {"type": "flicker", "speed": 23, "threshold": -0.85, "dim": 0.25, "pulseAbove": 0.5},
+    "neon": {"type": "curve", "base": 0.65, "pulse": 0.35, "gate": "@neonFlicker"},
+    "lamp": {"type": "curve", "base": 0.75, "pulse": 0.25}
+  },
+  "camera": {
+    "keyframes": [{"time": 0, "x": 0, "y": 240}]
+  },
+  "environment": {
+    "type": "city",
+    "levels": {"neon": "@neon", "lamp": "@lamp"}
+  },
+  "layers": [
+    {
+      "id": "overlay",
+      "space": "screen",
+      "components": [
+        {
+          "id": "vignette",
+          "type": "vignette",
+          "color": "$black",
+          "cx": 0.5,
+          "cy": 0.5,
+          "inner": 0.3,
+          "outer": 0.85,
+          "alpha": 0.6
+        },
+        {"id": "fade", "type": "fade", "color": "$black"}
+      ]
+    }
+  ],
+  "post": [
+    {"type": "grade", "brightness": 0.85, "envGain": 0.25},
+    {"type": "noise", "amount": 0.05, "seed": 0.5, "cycle": 8}
+  ],
+  "events": [
+    {"time": 0, "target": "fade", "action": "fadeIn", "params": {"duration": 1.2}},
+    {"time": 38.5, "target": "fade", "action": "fadeOut", "params": {"duration": 1.5}}
+  ]
+}
