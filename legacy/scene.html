@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000}canvas{image-rendering:pixelated}</style>
+<script src="pixi.min.js"></script>
+</head><body>
+<script>
+// "Desert Lab" — original scene. Low-res pixel canvas (270x480), upscaled later.
+const W = 270, H = 480, FPS = 24;
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const pulse = t => 0.5 + 0.5 * Math.sin(t * 2); // gentle time-based glow (no music)
+const beatIdx = t => Math.floor(t * 2); // string-light chase steps twice a second
+const lerp = (a, b, f) => a + (b - a) * f;
+const smooth = f => f <= 0 ? 0 : f >= 1 ? 1 : f * f * (3 - 2 * f);
+const mix = (c1, c2, f) => { const r = lerp(c1 >> 16, c2 >> 16, f), g = lerp((c1 >> 8) & 255, (c2 >> 8) & 255, f), b = lerp(c1 & 255, c2 & 255, f); return (r << 16) | (g << 8) | b; };
+
+window.ready = (async () => {
+  const app = new PIXI.Application();
+  await app.init({ width: W, height: H, background: 0x000000, antialias: false, preserveDrawingBuffer: true, autoStart: false, resolution: 1 });
+  document.body.appendChild(app.canvas);
+  const world = new PIXI.Container(); app.stage.addChild(world);
+  const WORLD_H = 840; // tall world; the camera frames the camp at the bottom
+
+  // ---------- sky ----------
+  const sky = new PIXI.Graphics();
+  const skyCols = [0x070614, 0x0d0b26, 0x161338, 0x23194a, 0x3a2253, 0x5a2c55, 0x7e3a52];
+  const bands = 28;
+  for (let i = 0; i < bands; i++) {
+    const f = i / (bands - 1) * (skyCols.length - 1), k = Math.min(Math.floor(f), skyCols.length - 2);
+    sky.rect(-40, i * (560 / bands), W + 80, 560 / bands + 1).fill(mix(skyCols[k], skyCols[k + 1], Math.round((f - k) * 3) / 3));
+  }
+  world.addChild(sky);
+
+  // milky band
+  const milky = new PIXI.Graphics();
+  for (let i = 0; i < 260; i++) {
+    const x = rnd() * (W + 120) - 60, y = 40 + x * 0.9 + (rnd() - 0.5) * 70;
+    milky.rect(Math.round(x), Math.round(y), 1, 1).fill({ color: 0xb8a8ff, alpha: 0.18 + rnd() * 0.2 });
+  }
+  world.addChild(milky);
+
+  // star layers (parallax)
+  const starLayers = [];
+  for (let L = 0; L < 3; L++) {
+    const c = new PIXI.Container(); const stars = [];
+    for (let i = 0; i < [90, 55, 25][L]; i++) {
+      const g = new PIXI.Graphics(); const big = L === 2 && rnd() < 0.4;
+      g.rect(0, 0, 1, 1).fill(0xfff4dc); if (big) { g.rect(-1, 0, 3, 1).fill({ color: 0xfff4dc, alpha: 0.5 }); g.rect(0, -1, 1, 3).fill({ color: 0xfff4dc, alpha: 0.5 }); }
+      g.x = Math.round(rnd() * (W + 100) - 50); g.y = Math.round(rnd() * 470); g.ph = rnd() * 6.28; g.sp = 1 + rnd() * 2;
+      c.addChild(g); stars.push(g);
+    }
+    world.addChild(c); starLayers.push({ c, stars, f: [0.15, 0.3, 0.5][L] });
+  }
+
+  // moon with glow
+  const moonGlow = new PIXI.Graphics(); [38, 28, 20].forEach((r, i) => moonGlow.circle(0, 0, r).fill({ color: 0xffe2b0, alpha: [0.05, 0.08, 0.12][i] }));
+  const moon = new PIXI.Graphics(); moon.circle(0, 0, 13).fill(0xfff0d0); moon.circle(5, -3, 12).fill(0x1a1440);
+  const moonC = new PIXI.Container(); moonC.addChild(moonGlow, moon); moonC.x = 205; moonC.y = 110; world.addChild(moonC);
+
+  // shooting star
+  const shoot = new PIXI.Graphics(); world.addChild(shoot);
+
+  // ---------- terrain ----------
+  function ridge(color, base, amp, freq, phase, flatTop) {
+    const g = new PIXI.Graphics(); const pts = [-60, WORLD_H];
+    for (let x = -60; x <= W + 60; x += 3) {
+      let y = base - amp * (0.6 * Math.sin(x * freq + phase) + 0.3 * Math.sin(x * freq * 2.7 + phase * 2) + 0.1 * Math.sin(x * freq * 6.1));
+      if (flatTop) y = Math.min(y, base - amp * 0.55) + (Math.sin(x * 0.7) > 0.95 ? 1 : 0); // mesa tops
+      pts.push(x, Math.round(y));
+    }
+    pts.push(W + 60, WORLD_H); g.poly(pts).fill(color); return g;
+  }
+  const farMesa = ridge(0x2a1838, 560, 40, 0.025, 1.2, true);
+  const midMesa = ridge(0x1d1229, 585, 26, 0.04, 3.1, true);
+  const dunes = ridge(0x2b1a22, 612, 10, 0.03, 0.4, false);
+  world.addChild(farMesa, midMesa, dunes);
+
+  // ground
+  const ground = new PIXI.Graphics();
+  const gcols = [0x3a2228, 0x34202a, 0x2c1b26, 0x231621, 0x1a111b];
+  gcols.forEach((c, i) => ground.rect(-60, 618 + i * 28, W + 120, i === 4 ? 200 : 30).fill(c));
+  for (let i = 0; i < 160; i++) ground.rect(Math.round(rnd() * (W + 100) - 50), Math.round(622 + rnd() * 140), 1, 1).fill({ color: 0x6a4a44, alpha: 0.5 });
+  world.addChild(ground);
+
+  // ---------- light pools on sand (drawn under objects) ----------
+  const doorPool = new PIXI.Graphics(); world.addChild(doorPool);
+  const bulbPool = new PIXI.Graphics(); world.addChild(bulbPool);
+
+  // cacti (generic saguaro silhouettes)
+  function cactus(x, y, h, col) {
+    const g = new PIXI.Graphics();
+    g.rect(x, y - h, 4, h).fill(col);
+    g.rect(x - 5, y - h * 0.62, 5, 3).fill(col); g.rect(x - 5, y - h * 0.62 - 9, 3, 10).fill(col);
+    g.rect(x + 4, y - h * 0.45, 5, 3).fill(col); g.rect(x + 6, y - h * 0.45 - 7, 3, 8).fill(col);
+    return g;
+  }
+  world.addChild(cactus(30, 622, 34, 0x140c16), cactus(238, 616, 22, 0x1a1020));
+
+  // ---------- the trailer (rounded aluminium camper, original design) ----------
+  const camp = new PIXI.Container(); camp.x = 118; camp.y = 646; world.addChild(camp);
+  const tr = new PIXI.Graphics();
+  tr.roundRect(-52, -46, 104, 42, 18).fill(0x5d6070);           // body
+  tr.roundRect(-50, -45, 100, 14, 12).fill(0x7c8090);          // moonlit top
+  for (let x = -44; x < 48; x += 8) tr.rect(x, -30, 1, 24).fill({ color: 0x3e404c, alpha: 0.8 }); // panel seams
+  tr.rect(-52, -10, 104, 3).fill(0x3a3c46);                    // skirt
+  tr.circle(-14, -2, 7).fill(0x0c0a10); tr.circle(-14, -2, 3).fill(0x4a4a55); // wheel
+  tr.rect(52, -10, 16, 2).fill(0x2a2a32); tr.rect(66, -10, 2, 8).fill(0x2a2a32); // hitch & jack
+  tr.rect(-6, -60, 14, 14).fill(0x45474f); tr.rect(-8, -62, 18, 3).fill(0x55575f); // roof vent
+  tr.rect(-46, -52, 26, 2).fill(0x2a3a52); tr.rect(-44, -54, 22, 2).fill(0x34507a);  // solar panel
+  camp.addChild(tr);
+  const win = new PIXI.Graphics(); camp.addChild(win);     // windows (pulsing)
+  const door = new PIXI.Graphics(); camp.addChild(door);
+  const winGlow = new PIXI.Graphics(); winGlow.filters = [new PIXI.BlurFilter({ strength: 6, quality: 3 })]; winGlow.blendMode = 'add'; camp.addChild(winGlow);
+
+  // generator with LED
+  const gen = new PIXI.Graphics(); gen.rect(-82, -12, 16, 12).fill(0x2a2c30); gen.rect(-80, -10, 12, 3).fill(0x1a1b1e);
+  camp.addChild(gen); const led = new PIXI.Graphics(); camp.addChild(led);
+  // cable
+  const cable = new PIXI.Graphics(); cable.moveTo(-66, -2).quadraticCurveTo(-60, 2, -52, -6).stroke({ width: 1, color: 0x111114 }); camp.addChild(cable);
+
+  // string lights from trailer to a pole
+  const pole = new PIXI.Graphics(); pole.rect(96, -54, 2, 54).fill(0x1c1418); camp.addChild(pole);
+  const wire = new PIXI.Graphics(); camp.addChild(wire);
+  const bulbs = new PIXI.Graphics(); camp.addChild(bulbs);
+  const bulbGlow = new PIXI.Graphics(); bulbGlow.filters = [new PIXI.BlurFilter({ strength: 4, quality: 3 })]; bulbGlow.blendMode = 'add'; camp.addChild(bulbGlow);
+  const BULBS = []; for (let i = 0; i <= 9; i++) { const f = i / 9; BULBS.push([lerp(40, 96, f), lerp(-40, -54, f) + Math.sin(f * Math.PI) * 9]); }
+  wire.moveTo(40, -40); BULBS.forEach(([x, y]) => wire.lineTo(x, y)); wire.stroke({ width: 1, color: 0x120c10 });
+
+  // camp chair + crate (props)
+  const props = new PIXI.Graphics();
+  props.rect(70, -9, 10, 2).fill(0x5a2a2a); props.rect(70, -17, 2, 10).fill(0x5a2a2a); props.rect(70, -7, 1, 7).fill(0x222); props.rect(79, -7, 1, 7).fill(0x222);
+  props.rect(-36, -8, 12, 8).fill(0x4a3424); props.rect(-36, -5, 12, 1).fill(0x2a1c14);
+  camp.addChild(props);
+
+  // ---------- smoke from vent ----------
+  const smokeC = new PIXI.Container(); smokeC.filters = [new PIXI.BlurFilter({ strength: 1.5, quality: 2 })]; camp.addChild(smokeC);
+  const PUFFS = []; for (let i = 0; i < 70; i++) { const g = new PIXI.Graphics(); g.circle(0, 0, 4).fill(0xc8c2d6); smokeC.addChild(g); PUFFS.push({ g, off: i / 70 * 6, dx: (rnd() - 0.5) * 22, r: 0.5 + rnd() * 1.1, wob: rnd() * 6.28 }); }
+
+  // ---------- dust motes in the light ----------
+  const dustC = new PIXI.Container(); dustC.blendMode = 'add'; world.addChild(dustC);
+  const DUST = []; for (let i = 0; i < 60; i++) { const g = new PIXI.Graphics(); g.rect(0, 0, 1, 1).fill(0xffd08a); dustC.addChild(g); DUST.push({ g, x: 90 + rnd() * 140, y: 560 + rnd() * 90, ph: rnd() * 6.28, sp: 0.3 + rnd() }); }
+
+  // ---------- foreground ----------
+  const fg = new PIXI.Container(); world.addChild(fg);
+  const fgDune = ridge(0x0b070c, 742, 10, 0.035, 2.2, false); fg.addChild(fgDune);
+  const TUFTS = []; for (let i = 0; i < 16; i++) { const g = new PIXI.Graphics(); fg.addChild(g); TUFTS.push({ g, x: rnd() * (W + 80) - 40, ph: rnd() * 6.28 }); }
+
+  // ---------- overlays ----------
+  const vc = document.createElement('canvas'); vc.width = W; vc.height = H; const vx = vc.getContext('2d');
+  const rg = vx.createRadialGradient(W / 2, H * 0.55, H * 0.2, W / 2, H * 0.55, H * 0.75);
+  rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(1, 'rgba(0,0,0,0.7)'); vx.fillStyle = rg; vx.fillRect(0, 0, W, H);
+  const vignette = new PIXI.Sprite(PIXI.Texture.from(vc)); app.stage.addChild(vignette);
+  const noise = new PIXI.NoiseFilter({ noise: 0.06, seed: 0.3 });
+  const color = new PIXI.ColorMatrixFilter();
+  world.filters = [color, noise];
+  const fade = new PIXI.Graphics(); fade.rect(0, 0, W, H).fill(0x000000); app.stage.addChild(fade);
+
+  // ---------- per-frame ----------
+  window.renderFrame = (n) => {
+    const t = n / FPS, p = pulse(t), e = 0.5, bi = beatIdx(t);
+    // camera: fixed on the camp (world y 360-840), slow horizontal pan only.
+    // px() rounds every parallax offset to whole pixels.
+    const camX = Math.sin(t * 0.12) * 14 - 4;
+    world.pivot.set(W / 2, 600); world.position.set(W / 2, H / 2);
+    const px = f => Math.round(camX * f);
+    starLayers.forEach(({ c, stars, f }) => { c.x = px(f); stars.forEach(s => s.alpha = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * s.sp + s.ph))); });
+    milky.x = px(0.1); moonC.x = 205 + px(0.08);
+    farMesa.x = px(0.25); midMesa.x = px(0.4); dunes.x = px(0.55); ground.x = px(0.7);
+    camp.x = 118 + px(0.7); doorPool.x = bulbPool.x = px(0.7); fg.x = px(1.2); dustC.x = px(0.7);
+
+    // window + door light pulse; lights shut off at the end
+    const off = t > 37.2 ? 0 : 1, bulbsOff = t > 36.2 ? 0 : 1;
+    const lw = (0.55 + 0.45 * p) * (0.8 + 0.2 * e) * off;
+    win.clear(); [[-40, -36], [18, -36]].forEach(([x, y]) => win.roundRect(x, y, 16, 9, 2).fill(mix(0x201008, 0xffb04a, lw)));
+    door.clear(); door.rect(-2, -38, 12, 30).fill(0x2a2c34); door.rect(0, -36, 7, 27).fill(mix(0x1a0c06, 0xffc066, lw)); door.rect(10, -38, 3, 30).fill(0x6c7080);
+    winGlow.clear(); [[-32, -32], [26, -32], [4, -22]].forEach(([x, y]) => winGlow.circle(x, y, 10).fill({ color: 0xff9a3a, alpha: 0.55 * lw }));
+    doorPool.clear(); for (let k = 3; k >= 1; k--) doorPool.ellipse(126, 648, 16 + k * 9, 3 + k * 2).fill({ color: 0xffa040, alpha: 0.07 * lw });
+    // string lights: chase on each beat, swell on strong beats
+    bulbs.clear(); bulbGlow.clear(); bulbPool.clear();
+    BULBS.forEach(([x, y], i) => {
+      const on = ((i + bi) % 3 !== 0 ? 1 : 0.35) * bulbsOff * (t > 2 ? 1 : 0);
+      const c = [0xffd27a, 0x52e0d0, 0xff6a8a][i % 3];
+      bulbs.rect(Math.round(x), Math.round(y) + 1, 2, 2).fill(mix(0x201a18, c, on * (0.6 + 0.4 * p)));
+      bulbGlow.circle(x + 1, y + 2, 4).fill({ color: c, alpha: 0.5 * on * (0.5 + 0.5 * p) });
+    });
+    for (let k = 3; k >= 1; k--) bulbPool.ellipse(186, 648, 14 + k * 8, 2 + k * 1.5).fill({ color: 0xffd090, alpha: 0.05 * bulbsOff * (0.6 + 0.4 * p) });
+    led.clear(); led.rect(-70, -9, 1, 1).fill(Math.floor(t * 2) % 2 && off ? 0x40ff70 : 0x0c3a18);
+
+    // smoke rising from the vent, drifting with the wind
+    PUFFS.forEach(q => {
+      const a = ((t + q.off) % 6) / 6; // age 0..1
+      q.g.x = 1 + q.dx * a + a * a * 40 + Math.sin(t * 0.9 + q.wob) * 7 * a;
+      q.g.y = -62 - a * 110 + Math.cos(t * 0.7 + q.wob) * 4 * a;
+      q.g.scale.set((0.5 + a * 3.4) * q.r);
+      q.g.alpha = Math.sin(a * Math.PI) * 0.2 * (t > 38.5 ? (40 - t) / 1.5 : 1);
+      q.g.tint = mix(0x9c94b4, 0xffb070, Math.max(0, 0.6 - a) * lw * 0.6); // underlit by window light
+    });
+    DUST.forEach(d => { d.g.x = Math.round(d.x + Math.sin(t * d.sp + d.ph) * 6); d.g.y = Math.round(d.y + Math.cos(t * d.sp * 0.7 + d.ph) * 4 - (t * 2 % 10)); d.g.alpha = (0.2 + 0.5 * p) * (0.5 + 0.5 * Math.sin(t * 2 + d.ph)) * off; });
+    TUFTS.forEach(u => { const s = Math.round(Math.sin(t * 1.5 + u.ph) * 1.5); u.g.clear(); for (let k = -2; k <= 2; k++) u.g.moveTo(u.x + k * 2, 746).lineTo(u.x + k * 3 + s, 734 + Math.abs(k) * 2).stroke({ width: 1, color: 0x0e0a10 }); });
+
+    // shooting star on the beat at ~24s and ~33s
+    shoot.clear();
+    [[23.45, 40, 60], [32.83, 150, 30]].forEach(([s, sx, sy]) => {
+      const a = (t - s) / 0.9; if (a > 0 && a < 1) { const x = sx + a * 90, y = sy + a * 45; for (let k = 0; k < 14; k++) shoot.rect(Math.round(x - k * 2), Math.round(y - k), 1, 1).fill({ color: 0xffffff, alpha: (1 - k / 14) * (1 - a) }); }
+    });
+    shoot.x = px(0.3);
+
+    // grade + fades
+    color.reset(); color.brightness(0.9 + 0.18 * e + 0.06 * p, false);
+    noise.seed = (n % 13) / 13;
+    let f = 0; if (t < 1.5) f = 1 - t / 1.5; if (t > 38.3) f = Math.min(1, (t - 38.3) / 1.7);
+    fade.alpha = f;
+    app.renderer.render(app.stage);
+    return app.canvas.toDataURL('image/png');
+  };
+  return true;
+})();
+// Show a frame on load so the page isn't blank in the dev server.
+window.ready.then(() => window.renderFrame(300));
+</script></body></html>
