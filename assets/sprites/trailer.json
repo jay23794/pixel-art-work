@@ -1,0 +1,37 @@
+{
+  "id": "trailer",
+  "type": "sprite",
+  "src": "trailer.png",
+  "width": 120,
+  "height": 67,
+  "anchor": {
+    "x": 52,
+    "y": 62
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "defaultLayer": "camp",
+  "tags": [
+    "desert-lab",
+    "vehicle"
+  ],
+  "palette": [
+    "#0c0a10",
+    "#2a2a32",
+    "#2a2c34",
+    "#2a3a52",
+    "#34507a",
+    "#3a3c46",
+    "#444653",
+    "#45474f",
+    "#4a4a55",
+    "#55575f",
+    "#5d6070",
+    "#6c7080",
+    "#7c8090"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "camp-chair",
+  "type": "sprite",
+  "src": "camp-chair.png",
+  "width": 10,
+  "height": 17,
+  "anchor": {
+    "x": 0,
+    "y": 17
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "defaultLayer": "camp",
+  "tags": [
+    "desert-lab",
+    "prop"
+  ],
+  "palette": [
+    "#000222",
+    "#5a2a2a"
+  ]
+}

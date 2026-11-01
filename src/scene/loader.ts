@@ -1,8 +1,9 @@
 import type { z } from 'zod';
 import type { Keyframe } from '../camera/camera.ts';
 import type { SignalDef } from '../core/signals.ts';
-import { bundledShapeAssets } from './assets.ts';
-import { shapeAssetSchema, type SceneEvent, type ShapeAsset } from './primitives.ts';
+import { assetSchema, type AssetDef } from '../assets/contract.ts';
+import { bundledAssets } from '../assets/registry.ts';
+import type { SceneEvent } from './primitives.ts';
 import { COMPONENTS, POST_EFFECTS } from './registry.ts';
 import { sceneSchema, type SceneFile } from './schema.ts';
 
@@ -65,8 +66,8 @@ const list = (names: Iterable<string>): string => [...names].sort().join(', ');
 export interface LoadOptions {
   /** Name used in error messages, e.g. "scenes/desert-lab.json". */
   readonly source?: string;
-  /** Shape assets by id (raw JSON). Defaults to the bundled assets/shapes/*.json. */
-  readonly shapeAssets?: Readonly<Record<string, unknown>>;
+  /** Assets by id (raw JSON). Defaults to the bundled assets/sprites/*.json. */
+  readonly assets?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -74,7 +75,7 @@ export interface LoadOptions {
  * listing every problem with its JSON path.
  */
 export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
-  const { source, shapeAssets = bundledShapeAssets() } = options;
+  const { source, assets = bundledAssets() } = options;
   const issues: SceneIssue[] = [];
   const add = (path: Path, message: string): void => void issues.push({ path: formatPath(path), message });
   // Paths whose palette reference is unknown; already reported, so skip the follow-on colour-format error.
@@ -118,23 +119,23 @@ export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
     return value;
   };
 
-  // Shape assets, validated once on first use.
-  const assetCache = new Map<string, ShapeAsset | null>();
-  const shapeAsset = (assetId: string, path: Path): ShapeAsset | null => {
+  // Assets, validated once on first use.
+  const assetCache = new Map<string, AssetDef | null>();
+  const assetDef = (assetId: string, path: Path): AssetDef | null => {
     if (assetCache.has(assetId)) return assetCache.get(assetId) ?? null;
-    let asset: ShapeAsset | null = null;
-    const raw = shapeAssets[assetId];
-    const file = `assets/shapes/${assetId}.json`;
+    let def: AssetDef | null = null;
+    const raw = assets[assetId];
+    const file = `assets/sprites/${assetId}.json`;
     if (raw === undefined) {
-      add(path, `unknown shape asset "${assetId}" (known: ${list(Object.keys(shapeAssets)) || 'none'})`);
+      add(path, `unknown asset "${assetId}" (known: ${list(Object.keys(assets)) || 'none'})`);
     } else {
-      const p = shapeAssetSchema.safeParse(raw);
+      const p = assetSchema.safeParse(raw);
       if (!p.success) for (const i of p.error.issues) issues.push({ path: `${file}:${formatPath(i.path)}`, message: i.message });
       else if (p.data.id !== assetId) issues.push({ path: `${file}:id`, message: `asset id "${p.data.id}" must match its file name "${assetId}"` });
-      else asset = p.data;
+      else def = p.data;
     }
-    assetCache.set(assetId, asset);
-    return asset;
+    assetCache.set(assetId, def);
+    return def;
   };
 
   // Components: unique ids, known types, valid params.
@@ -159,9 +160,9 @@ export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
         return;
       }
       const params = p.data as Record<string, unknown>;
-      if (ct.usesShapeAsset) {
-        const asset = shapeAsset(params.asset as string, [...path, 'asset']);
-        if (asset) params.shapeAsset = asset;
+      if (ct.usesAsset) {
+        const def = assetDef(params.asset as string, [...path, 'asset']);
+        if (def) params.assetDef = def;
       }
       parsedParams.set(id, params);
     });

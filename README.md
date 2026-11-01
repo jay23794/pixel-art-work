@@ -26,6 +26,7 @@ npx playwright install chromium   # headless browser for frame capture and e2e t
 | Command             | What it does                                  |
 | ------------------- | --------------------------------------------- |
 | `npm run render -- <scene.json>` | Export MP4 + frame-hash manifest (see Export) |
+| `npm run import -- <export> --id <id>` | Import a FrameBaker spritesheet as an asset (see Assets) |
 | `npm run dev`       | Preview at http://localhost:5173 (`?scene=desert-lab&frame=N`; console: `renderFrame(n)`) |
 | `npm run build`     | Type-check, then production build into `dist/` |
 | `npm test`          | Unit tests (Vitest, `tests/**/*.test.ts`)     |
@@ -44,7 +45,8 @@ src/components/  scene building blocks (+ post effects in post.ts)
 src/camera/      keyframed camera, whole-pixel parallax
 src/video/       MP4 export: renderer page, Playwright capture, FFmpeg encoding, CLI
 scenes/          JSON scene files (composition only)
-assets/shapes/   static drawn art as shape assets (<id>.json)
+assets/sprites/  sprite/animation assets (<id>.json + <id>.png)
+src/assets/      asset contract, registry, preloader, cleanup, FrameBaker importer
 legacy/          original Desert Lab files (scene.html is the music-free reference)
 tests/           unit tests
 tests/golden/    reference frames for regression tests
@@ -80,20 +82,46 @@ stays deterministic:
 Params that take a level or power (e.g. `lightPool.level`, `dust.power`) accept
 a number or `"@name"`.
 
-**Shape assets** (`assets/shapes/<id>.json`) hold static art:
-`{ id, type: "shape", width, height, anchor, shapes }`. Coordinates are local
-((0, 0) = top-left of the box), and `anchor` is the local point that lands on
-the placing component's position. Place one with the `shape` component:
-`{ "id": "chair", "type": "shape", "asset": "camp-chair", "x": 70, "y": 0 }`.
-Shapes are `rect`, `roundRect`, `circle` (filled, optional `alpha` and `repeat`)
-and `curve` (stroked quadratic). Colours in assets are hex. Unknown asset ids
-and invalid asset files are reported at load time.
+**Sprites** place an asset: `{ "id": "chair", "type": "sprite", "asset": "camp-chair", "x": 70, "y": 0 }`
+(`x`/`y` is where the asset's anchor lands; optional `parallax`, and for
+animations `phase` and `loop`). Unknown asset ids and invalid asset files are
+reported at load time.
 
 Parallax: a layer or component with factor `p` moves by `round(-camera.x × p)`
 pixels, so every layer lands on whole pixels. Component types, their params and
 the actions they accept are defined next to each component (`params`, `actions`)
 and listed in `src/scene/registry.ts`. Errors name the JSON path, e.g.
 `layers[0].components[1].type: unknown component type "sparkle" (known: …)`.
+
+## Assets
+
+An asset is `assets/sprites/<id>.json` plus its PNG (contract: `src/assets/contract.ts`):
+
+```json
+{ "id": "ada-walk", "type": "animation", "src": "ada-walk.png", "width": 21, "height": 47,
+  "anchor": { "x": 11, "y": 24 }, "frames": [{ "x": 0, "y": 0, "duration": 1 }, …], "fps": 10,
+  "defaultLayer": "camp", "tags": ["character"], "palette": ["#1a1c2c", …] }
+```
+
+- `type`: `sprite` (1 frame) or `animation` (2+ frames, needs `fps`; `duration` in steps of 1/fps).
+- `anchor`: the frame point placed at the sprite's position. `palette`: the colours the image uses.
+- Images are 1× pixel art with alpha 0 or 255 only (checked by `tests/assets.test.ts`).
+- Every texture a scene uses is loaded (nearest-neighbour) before the scene is built,
+  so frame 0 never renders without them. Animation frames are chosen with integer
+  maths: `floor(n × fps / sceneFps)`.
+
+### Importing from FrameBaker
+
+```bash
+npm run import -- "EVAL Dr Ada Volt_spritesheet.zip" --id ada-walk --tags character --layer camp
+```
+
+Accepts the export `.zip`, its extracted folder, or the `.frames.json`. Options:
+`--palette <scene.json|palette.json>` (snap colours), `--scale auto|N`, `--alpha 0-255`
+(threshold, default 128), `--no-trim`, `--expect WxH` (size check), `--out`, `--force`.
+Cleanup (sharp): threshold alpha to 0/255 → snap to the palette → downscale to the true
+pixel grid (auto-detected from pixel runs; blocks must be uniform) → trim to the bounds
+shared by all frames (the anchor follows) → verify the size. Frames are written in one row.
 
 ## Export
 

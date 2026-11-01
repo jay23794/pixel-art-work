@@ -257,8 +257,8 @@
           "parallax": 0.7,
           "level": "@bulbGlow"
         },
-        {"id": "cactusLeft", "type": "shape", "asset": "saguaro-tall", "x": 30, "y": 622},
-        {"id": "cactusRight", "type": "shape", "asset": "saguaro-short", "x": 238, "y": 616}
+        {"id": "cactusLeft", "type": "sprite", "asset": "saguaro-tall", "x": 30, "y": 622},
+        {"id": "cactusRight", "type": "sprite", "asset": "saguaro-short", "x": 238, "y": 616}
       ]
     },
     {
@@ -267,7 +267,7 @@
       "y": 646,
       "parallax": 0.7,
       "components": [
-        {"id": "trailer", "type": "shape", "asset": "trailer", "x": 0, "y": 0},
+        {"id": "trailer", "type": "sprite", "asset": "trailer", "x": 0, "y": 0},
         {
           "id": "trailerLights",
           "type": "windowLights",
@@ -303,7 +303,7 @@
           },
           "level": "@windowLight"
         },
-        {"id": "generator", "type": "shape", "asset": "generator", "x": -82, "y": 0},
+        {"id": "generator", "type": "sprite", "asset": "generator", "x": -82, "y": 0},
         {
           "id": "generatorLed",
           "type": "led",
@@ -314,7 +314,7 @@
           "rate": 2,
           "power": "@lightsOn"
         },
-        {"id": "lightPole", "type": "shape", "asset": "light-pole", "x": 96, "y": 0},
+        {"id": "lightPole", "type": "sprite", "asset": "light-pole", "x": 96, "y": 0},
         {
           "id": "stringLights",
           "type": "stringLights",
@@ -336,8 +336,8 @@
           },
           "power": "@bulbsOn"
         },
-        {"id": "chair", "type": "shape", "asset": "camp-chair", "x": 70, "y": 0},
-        {"id": "crate", "type": "shape", "asset": "crate", "x": -36, "y": 0},
+        {"id": "chair", "type": "sprite", "asset": "camp-chair", "x": 70, "y": 0},
+        {"id": "crate", "type": "sprite", "asset": "crate", "x": -36, "y": 0},
         {
           "id": "smoke",
           "type": "smoke",

@@ -1,0 +1,25 @@
+{
+  "id": "saguaro-short",
+  "type": "sprite",
+  "src": "saguaro-short.png",
+  "width": 14,
+  "height": 23,
+  "anchor": {
+    "x": 5,
+    "y": 23
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "defaultLayer": "backdrop",
+  "tags": [
+    "desert-lab",
+    "plant"
+  ],
+  "palette": [
+    "#1a1020"
+  ]
+}

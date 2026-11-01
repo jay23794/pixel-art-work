@@ -1,0 +1,25 @@
+{
+  "id": "saguaro-tall",
+  "type": "sprite",
+  "src": "saguaro-tall.png",
+  "width": 14,
+  "height": 34,
+  "anchor": {
+    "x": 5,
+    "y": 34
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "defaultLayer": "backdrop",
+  "tags": [
+    "desert-lab",
+    "plant"
+  ],
+  "palette": [
+    "#140c16"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "generator",
+  "type": "sprite",
+  "src": "generator.png",
+  "width": 30,
+  "height": 12,
+  "anchor": {
+    "x": 0,
+    "y": 12
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "defaultLayer": "camp",
+  "tags": [
+    "desert-lab",
+    "prop"
+  ],
+  "palette": [
+    "#111114",
+    "#1a1b1e",
+    "#2a2c30"
+  ]
+}

@@ -1,9 +1,12 @@
+import type { AssetDef } from '../assets/contract.ts';
+import { preloadAssets } from '../assets/preload.ts';
 import { createApp, type PixelForgeApp } from '../core/app.ts';
 import type { SceneDef } from './loader.ts';
 import { COMPONENTS, POST_EFFECTS } from './registry.ts';
 
 /**
- * Builds a runnable scene from a loaded SceneDef: layers and components in file
+ * Builds a runnable scene from a loaded SceneDef. All asset textures are loaded
+ * first, so nothing renders before they are ready. Then layers and components in file
  * order (which is also the draw order), then the post effects as the world's
  * filters. Each component draws from its own random stream (see core/app.ts).
  */
@@ -20,12 +23,21 @@ export async function createScene(def: SceneDef): Promise<PixelForgeApp> {
     background: o.backgroundColor,
   });
 
+  const usedAssets = new Map<string, AssetDef>();
+  for (const c of def.layers.flatMap((l) => l.components)) {
+    const a = c.params.assetDef as AssetDef | undefined;
+    if (a) usedAssets.set(a.id, a);
+  }
+  const textures = await preloadAssets([...usedAssets.values()]);
+
   for (const l of def.layers) {
     const layer = app.addLayer({ space: l.space, x: l.x, y: l.y, parallax: l.parallax });
     for (const c of l.components) {
       const type = COMPONENTS[c.type];
       if (!type) throw new Error(`unknown component type "${c.type}"`); // loadScene already rejects this
-      app.add(type.create(c.id), { ...c.params, events: c.events } as never, { layer });
+      const assetId = (c.params.assetDef as AssetDef | undefined)?.id;
+      const config = assetId === undefined ? { ...c.params, events: c.events } : { ...c.params, events: c.events, textures: textures.get(assetId) };
+      app.add(type.create(c.id), config as never, { layer });
     }
   }
 

@@ -1,0 +1,74 @@
+{
+  "id": "ada-walk",
+  "type": "animation",
+  "src": "ada-walk.png",
+  "width": 21,
+  "height": 47,
+  "anchor": {
+    "x": 11,
+    "y": 24
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0,
+      "duration": 1
+    },
+    {
+      "x": 21,
+      "y": 0,
+      "duration": 1
+    },
+    {
+      "x": 42,
+      "y": 0,
+      "duration": 1
+    },
+    {
+      "x": 63,
+      "y": 0,
+      "duration": 1
+    },
+    {
+      "x": 84,
+      "y": 0,
+      "duration": 1
+    },
+    {
+      "x": 105,
+      "y": 0,
+      "duration": 1
+    },
+    {
+      "x": 126,
+      "y": 0,
+      "duration": 1
+    },
+    {
+      "x": 147,
+      "y": 0,
+      "duration": 1
+    }
+  ],
+  "fps": 10,
+  "defaultLayer": "camp",
+  "tags": [
+    "character",
+    "sample"
+  ],
+  "palette": [
+    "#1a1c2c",
+    "#2a3550",
+    "#2a9d8f",
+    "#3b4a6b",
+    "#5a3a2a",
+    "#6ec6ff",
+    "#a7a9be",
+    "#b6bdcc",
+    "#c98c5f",
+    "#e8e8f0",
+    "#f2f4f8",
+    "#f4c79a",
+    "#ffcc33"
+  ]
+}

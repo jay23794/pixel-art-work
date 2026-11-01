@@ -46,8 +46,8 @@ export interface RenderResult {
   readonly timing: { readonly setupMs: number; readonly framesMs: number; readonly finalizeMs: number; readonly totalMs: number; readonly msPerFrame: number };
 }
 
-const readShapeAssets = (): Record<string, unknown> => {
-  const dir = join(ROOT, 'assets', 'shapes');
+const readAssets = (): Record<string, unknown> => {
+  const dir = join(ROOT, 'assets', 'sprites');
   return Object.fromEntries(
     readdirSync(dir)
       .filter((f) => f.endsWith('.json'))
@@ -68,7 +68,7 @@ export async function renderVideo(options: RenderOptions): Promise<RenderResult>
     throw new Error(`${source} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
   }
   // Validate in Node first: bad scenes fail before any browser starts.
-  const def = loadScene(json, { source, shapeAssets: readShapeAssets() });
+  const def = loadScene(json, { source, assets: readAssets() });
   const frameCount = Math.round(def.output.duration * def.output.fps);
   const from = options.from ?? 0;
   const to = options.to ?? frameCount - 1;

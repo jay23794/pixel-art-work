@@ -50,11 +50,12 @@ describe('loadScene: scenes/desert-lab.json', () => {
     expect(def.signals[1]?.[1]).toEqual({ type: 'curve', base: 0.55, pulse: 0.45, envBase: 0.8, env: 0.2, gate: 'lightsOn' });
   });
 
-  it('attaches validated shape assets', () => {
-    const asset = component(def, 'chair')?.params.shapeAsset as { id: string; anchor: unknown; shapes: { color: number }[] };
+  it('attaches validated assets to sprite components', () => {
+    const asset = component(def, 'chair')?.params.assetDef as { id: string; type: string; anchor: unknown; palette: string[] };
     expect(asset.id).toBe('camp-chair');
     expect(asset.anchor).toEqual({ x: 0, y: 17 });
-    expect(asset.shapes[2]?.color).toBe(0x000222);
+    expect(asset.type).toBe('sprite');
+    expect(asset.palette).toContain('#000222');
   });
 
   it('contains no inline shape art', () => {
@@ -105,7 +106,7 @@ describe('loadScene: invalid scenes fail with the JSON path and a useful message
 
   it('unknown component type', () => {
     expect(issuesFor((s) => (s.layers[0].components[1].type = 'sparkle'))).toEqual([
-      { path: 'layers[0].components[1].type', message: expect.stringMatching(/unknown component type "sparkle" \(known: dust, fade, .*shape, .*windowLights\)$/) },
+      { path: 'layers[0].components[1].type', message: expect.stringMatching(/unknown component type "sparkle" \(known: dust, fade, .*sky, smoke, sprite, .*windowLights\)$/) },
     ]);
   });
 
@@ -180,17 +181,17 @@ describe('loadScene: invalid scenes fail with the JSON path and a useful message
     ]);
   });
 
-  it('unknown shape asset id', () => {
+  it('unknown asset id', () => {
     expect(issuesFor((s) => (s.layers[1].components[2].asset = 'tent'))).toEqual([
-      { path: 'layers[1].components[2].asset', message: expect.stringMatching(/^unknown shape asset "tent" \(known: camp-chair, crate, generator, /) },
+      { path: 'layers[1].components[2].asset', message: expect.stringMatching(/^unknown asset "tent" \(known: ada-walk, camp-chair, crate, generator, /) },
     ]);
   });
 });
 
-describe('loadScene: shape assets are validated', () => {
-  const load = (shapeAssets: Record<string, unknown>) => {
+describe('loadScene: assets are validated', () => {
+  const load = (assets: Record<string, unknown>) => {
     try {
-      loadScene(raw(), { shapeAssets });
+      loadScene(raw(), { assets });
     } catch (e) {
       if (e instanceof SceneValidationError) return [...e.issues];
       throw e;
@@ -201,20 +202,20 @@ describe('loadScene: shape assets are validated', () => {
     Object.fromEntries(
       ['camp-chair', 'crate', 'generator', 'light-pole', 'saguaro-short', 'saguaro-tall', 'trailer'].map((id) => [
         id,
-        JSON.parse(readFileSync(new URL(`../assets/shapes/${id}.json`, import.meta.url), 'utf8')),
+        JSON.parse(readFileSync(new URL(`../assets/sprites/${id}.json`, import.meta.url), 'utf8')),
       ]),
     );
 
   it('reports bad asset content with the asset file and JSON path', () => {
     const assets = realAssets();
-    delete assets.crate?.shapes[1].w;
-    expect(load(assets)).toEqual([{ path: 'assets/shapes/crate.json:shapes[1].w', message: expect.stringMatching(/expected number/i) }]);
+    delete assets.crate?.anchor.y;
+    expect(load(assets)).toEqual([{ path: 'assets/sprites/crate.json:anchor.y', message: expect.stringMatching(/expected number/i) }]);
   });
 
   it('requires the asset id to match its file name', () => {
     const assets = realAssets();
     (assets.crate as Json).id = 'box';
-    expect(load(assets)).toEqual([{ path: 'assets/shapes/crate.json:id', message: 'asset id "box" must match its file name "crate"' }]);
+    expect(load(assets)).toEqual([{ path: 'assets/sprites/crate.json:id', message: 'asset id "box" must match its file name "crate"' }]);
   });
 
   it('event beyond duration', () => {

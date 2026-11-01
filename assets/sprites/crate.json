@@ -1,0 +1,26 @@
+{
+  "id": "crate",
+  "type": "sprite",
+  "src": "crate.png",
+  "width": 12,
+  "height": 8,
+  "anchor": {
+    "x": 0,
+    "y": 8
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "defaultLayer": "camp",
+  "tags": [
+    "desert-lab",
+    "prop"
+  ],
+  "palette": [
+    "#2a1c14",
+    "#4a3424"
+  ]
+}
