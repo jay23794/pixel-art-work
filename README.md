@@ -25,7 +25,7 @@ npx playwright install chromium   # headless browser for frame capture and e2e t
 
 | Command             | What it does                                  |
 | ------------------- | --------------------------------------------- |
-| `npm run dev`       | Vite dev server at http://localhost:5173      |
+| `npm run dev`       | Preview at http://localhost:5173 (`?frame=N`; console: `renderFrame(n)`) |
 | `npm run build`     | Type-check, then production build into `dist/` |
 | `npm test`          | Unit tests (Vitest, `tests/**/*.test.ts`)     |
 | `npm run typecheck` | `tsc --noEmit` (strict)                       |
@@ -39,7 +39,8 @@ Playwright e2e specs go in `tests/e2e/` and run with `npx playwright test`.
 src/core/        app, renderer, seeded random, frame context
 src/scene/       scene schema (zod), loader, factory
 src/components/  scene building blocks
-src/camera/      camera (static / whole-pixel pan)
+src/camera/      camera (fixed framing + whole-pixel parallax pan)
+src/scenes/      scene assembly (desertLab.ts, until scenes move to JSON)
 src/video/       frame capture + ffmpeg encoding
 scenes/          JSON scene files
 legacy/          original Desert Lab files, unchanged (reference only)
@@ -72,10 +73,13 @@ another frame, run `renderFrame(600)` in the browser console (frame n = t n/24 s
 ## Golden frames and regression test
 
 `tests/golden/legacy/` holds reference PNGs (270×480) of frames
-0, 24, 120, 240, 480, 720 and 900. `tests/regression.test.ts` (part of
-`npm test`) renders the same frames in headless Chromium with software WebGL
-and requires an exact pixel match. On failure it reports how many pixels differ.
+0, 24, 120, 240, 480, 720 and 900, rendered from `legacy/scene.html`.
+
+`tests/regression.test.ts` (part of `npm test`) renders the same frames with
+the **component port** (`src/scenes/desertLab.ts`, through the preview page on a
+private Vite server) in headless Chromium with software WebGL, and requires an
+exact pixel match. On failure it reports how many pixels differ.
 
 ```bash
-npm run capture:golden   # re-render the golden PNGs. Only when a change to the look is approved.
+npm run capture:golden   # re-render the golden PNGs from legacy/. Only when a change to the look is approved.
 ```

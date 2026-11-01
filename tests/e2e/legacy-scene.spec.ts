@@ -1,12 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-declare global {
-  interface Window {
-    ready: Promise<boolean>;
-    renderFrame: (n: number) => string;
-  }
-}
-
 test('legacy desert scene loads and renders a frame', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
