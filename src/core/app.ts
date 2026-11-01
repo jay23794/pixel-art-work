@@ -1,22 +1,32 @@
 import { Application, Container } from 'pixi.js';
-import { applyCamera, type CameraConfig } from '../camera/camera.ts';
+import { applyCamera, evaluateCamera, parallaxX, type CameraConfig } from '../camera/camera.ts';
 import type { SceneComponent } from './component.ts';
 import { createFrameContext, type FrameContext, type Timing } from './context.ts';
 import { createRng, deriveSeed, type Rng } from './random.ts';
 
 export interface AppConfig extends Timing {
-  /** Scene seed. Each component gets its own stream via deriveSeed(seed, id). */
+  /** Scene seed. By default each component gets its own stream via deriveSeed(seed, id). */
   readonly seed: number;
   readonly camera: CameraConfig;
   readonly background?: number;
 }
 
-/** world: moves with the camera. screen: fixed overlays drawn above the world. */
-export type Layer = 'world' | 'screen';
+export interface LayerOptions {
+  /** world: moves with the camera, under the world post effects. screen: fixed overlay on top. */
+  readonly space: 'world' | 'screen';
+  readonly x: number;
+  readonly y: number;
+  /** Camera-follow factor for the whole layer (see parallaxX). */
+  readonly parallax: number;
+}
+
+export interface Layer {
+  readonly container: Container;
+  readonly options: LayerOptions;
+}
 
 export interface AddOptions {
-  /** Defaults to 'world'. */
-  readonly layer?: Layer;
+  readonly layer: Layer;
   /** Defaults to the component's own stream; pass one to share a stream (e.g. the legacy LCG). */
   readonly rng?: Rng;
 }
@@ -24,11 +34,15 @@ export interface AddOptions {
 export interface PixelForgeApp {
   readonly pixi: Application;
   readonly canvas: HTMLCanvasElement;
-  /** Container for everything the camera sees. Filters set here apply to the whole world. */
+  /** Everything the camera sees. Post effects go in world.filters. */
   readonly world: Container;
+  /** Adds a layer on top of the existing layers in its space. */
+  addLayer(options: LayerOptions): Layer;
   /** Builds a component and adds it on top of the ones already in its layer. */
-  add<C>(component: SceneComponent<C>, config: C, options?: AddOptions): void;
-  /** Updates every component for frame n and renders once. */
+  add<C>(component: SceneComponent<C>, config: C, options: AddOptions): void;
+  /** Called every frame after the components update (e.g. post effects). */
+  onFrame(fn: (ctx: FrameContext) => void): void;
+  /** Updates everything for frame n and renders once. */
   renderFrame(n: number): FrameContext;
   destroy(): void;
 }
@@ -45,29 +59,46 @@ export async function createApp(config: AppConfig): Promise<PixelForgeApp> {
     resolution: 1,
   });
 
-  // Stage order: world first, then screen-layer containers on top.
+  // Stage order: world first, then screen layers on top.
   const world = new Container();
   pixi.stage.addChild(world);
 
+  const camera = (t: number) => evaluateCamera(config.camera, t);
+  const contextFor = (n: number) => createFrameContext(n, config, camera);
+  const layers: Layer[] = [];
   const components: SceneComponent<never>[] = [];
+  const frameHooks: ((ctx: FrameContext) => void)[] = [];
   const ids = new Set<string>();
 
   return {
     pixi,
     canvas: pixi.canvas,
     world,
-    add<C>(component: SceneComponent<C>, cfg: C, options: AddOptions = {}) {
+    addLayer(options) {
+      const container = new Container();
+      container.x = options.x;
+      container.y = options.y;
+      (options.space === 'screen' ? pixi.stage : world).addChild(container);
+      const layer = { container, options };
+      layers.push(layer);
+      return layer;
+    },
+    add<C>(component: SceneComponent<C>, cfg: C, options: AddOptions) {
       if (ids.has(component.id)) throw new Error(`duplicate component id "${component.id}"`);
       ids.add(component.id);
       const rng = options.rng ?? createRng(deriveSeed(config.seed, component.id));
-      const container = component.build(cfg, rng, createFrameContext(0, config));
-      (options.layer === 'screen' ? pixi.stage : world).addChild(container);
+      options.layer.container.addChild(component.build(cfg, rng, contextFor(0)));
       components.push(component as SceneComponent<never>);
     },
+    onFrame(fn) {
+      frameHooks.push(fn);
+    },
     renderFrame(n) {
-      const ctx = createFrameContext(n, config);
-      applyCamera(world, config.camera, config.width, config.height);
+      const ctx = contextFor(n);
+      applyCamera(world, ctx.camera, config.width, config.height);
+      for (const { container, options } of layers) container.x = options.x + parallaxX(ctx.camera, options.parallax);
       for (const c of components) c.update(ctx);
+      for (const fn of frameHooks) fn(ctx);
       pixi.renderer.render(pixi.stage);
       return ctx;
     },

@@ -1,45 +1,55 @@
 import { Graphics } from 'pixi.js';
+import { z } from 'zod';
 import { parallaxX } from '../camera/camera.ts';
 import type { SceneComponent } from '../core/component.ts';
-import { WORLD_H } from './shared.ts';
+import { color, parallax } from '../scene/primitives.ts';
+import type { Actions, WithEvents } from './shared.ts';
 
-export interface RidgeConfig {
-  color: number;
+export const params = z.strictObject({
+  color,
   /** Baseline y in world pixels. */
-  base: number;
-  amp: number;
-  freq: number;
-  phase: number;
-  /** Clamp peaks into flat mesa tops. */
-  flatTop: boolean;
-  /** Pan factor for parallax. */
-  parallax: number;
-}
+  base: z.number(),
+  amp: z.number(),
+  freq: z.number(),
+  phase: z.number(),
+  /** y = base − amp × Σ weight·sin(x·freq·freqMul + phase·phaseMul) */
+  harmonics: z.array(z.strictObject({ weight: z.number(), freqMul: z.number(), phaseMul: z.number() })).min(1),
+  /** Outline from xMin to xMax (inclusive) every `step` px, filled down to `bottom`. */
+  xMin: z.number(),
+  xMax: z.number(),
+  step: z.number().positive(),
+  bottom: z.number(),
+  /** Flat mesa tops: y = min(y, base − amp·clamp), plus `bump` px where sin(x·bumpFreq) > bumpThreshold. */
+  mesa: z.strictObject({ clamp: z.number(), bumpFreq: z.number(), bumpThreshold: z.number(), bump: z.number() }).optional(),
+  parallax,
+});
+export const actions: Actions = {};
+type Config = WithEvents<z.infer<typeof params>>;
 
-/** Silhouette of hills/mesas filled down to the bottom of the world. */
-export function ridge(id: string): SceneComponent<RidgeConfig> {
+/** Silhouette of hills/mesas filled down to `bottom`. */
+export function ridge(id: string): SceneComponent<Config> {
   let g!: Graphics;
-  let parallax = 0;
+  let factor = 0;
   return {
     id,
-    build({ color, base, amp, freq, phase, flatTop, parallax: p }, _rng, ctx0) {
-      const W = ctx0.width;
-      parallax = p;
+    build(cfg) {
+      const { base, amp, freq, phase, mesa } = cfg;
+      factor = cfg.parallax;
       g = new Graphics();
-      const pts = [-60, WORLD_H];
-      for (let x = -60; x <= W + 60; x += 3) {
-        let y =
-          base -
-          amp * (0.6 * Math.sin(x * freq + phase) + 0.3 * Math.sin(x * freq * 2.7 + phase * 2) + 0.1 * Math.sin(x * freq * 6.1));
-        if (flatTop) y = Math.min(y, base - amp * 0.55) + (Math.sin(x * 0.7) > 0.95 ? 1 : 0); // mesa tops
+      const pts = [cfg.xMin, cfg.bottom];
+      for (let x = cfg.xMin; x <= cfg.xMax; x += cfg.step) {
+        let sum = 0;
+        for (const h of cfg.harmonics) sum += h.weight * Math.sin(x * freq * h.freqMul + phase * h.phaseMul);
+        let y = base - amp * sum;
+        if (mesa) y = Math.min(y, base - amp * mesa.clamp) + (Math.sin(x * mesa.bumpFreq) > mesa.bumpThreshold ? mesa.bump : 0);
         pts.push(x, Math.round(y));
       }
-      pts.push(W + 60, WORLD_H);
-      g.poly(pts).fill(color);
+      pts.push(cfg.xMax, cfg.bottom);
+      g.poly(pts).fill(cfg.color);
       return g;
     },
     update(ctx) {
-      g.x = parallaxX(ctx.t, parallax);
+      g.x = parallaxX(ctx.camera, factor);
     },
   };
 }

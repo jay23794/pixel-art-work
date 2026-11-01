@@ -3,7 +3,8 @@
 Renders 16-bit pixel-art scenes from JSON scene descriptions into MP4 video.
 Logical canvas 270×480, exported at 1080×1920 (4× nearest-neighbour), 24 fps.
 
-> Status: project skeleton. No scene code has been ported yet — see `legacy/`.
+> Status: Desert Lab renders from `scenes/desert-lab.json`, pixel-identical to the
+> legacy reference. Video export (`src/video/`) is not built yet.
 
 ## Requirements
 
@@ -25,11 +26,12 @@ npx playwright install chromium   # headless browser for frame capture and e2e t
 
 | Command             | What it does                                  |
 | ------------------- | --------------------------------------------- |
-| `npm run dev`       | Preview at http://localhost:5173 (`?frame=N`; console: `renderFrame(n)`) |
+| `npm run dev`       | Preview at http://localhost:5173 (`?scene=desert-lab&frame=N`; console: `renderFrame(n)`) |
 | `npm run build`     | Type-check, then production build into `dist/` |
 | `npm test`          | Unit tests (Vitest, `tests/**/*.test.ts`)     |
 | `npm run typecheck` | `tsc --noEmit` (strict)                       |
 | `npm run lint`      | ESLint (typescript-eslint, strict)            |
+| `npm run capture:golden` | Render legacy golden frames; refuses to overwrite without `-- --update` |
 
 Playwright e2e specs go in `tests/e2e/` and run with `npx playwright test`.
 
@@ -37,17 +39,39 @@ Playwright e2e specs go in `tests/e2e/` and run with `npx playwright test`.
 
 ```
 src/core/        app, renderer, seeded random, frame context
-src/scene/       scene schema (zod), loader, factory
-src/components/  scene building blocks
-src/camera/      camera (fixed framing + whole-pixel parallax pan)
-src/scenes/      scene assembly (desertLab.ts, until scenes move to JSON)
+src/scene/       scene schema (zod), loader, factory, component registry
+src/components/  scene building blocks (+ post effects in post.ts)
+src/camera/      keyframed camera, whole-pixel parallax
 src/video/       frame capture + ffmpeg encoding
 scenes/          JSON scene files
-legacy/          original Desert Lab files, unchanged (reference only)
+legacy/          original Desert Lab files (scene.html is the music-free reference)
 tests/           unit tests
 tests/golden/    reference frames for regression tests
 tests/e2e/       Playwright specs
 ```
+
+## Scenes
+
+A scene is one JSON file in `scenes/`, validated by `src/scene/schema.ts`
+(version 1) and the component registry. The preview loads it with
+`?scene=<file name>`. Top-level fields:
+
+| Field | Meaning |
+| --- | --- |
+| `version`, `id`, `seed` | Format version (1), scene id, RNG seed |
+| `rng` | `per-component` (default; each component gets `deriveSeed(seed, id)`) or `legacy-lcg` (one Park–Miller stream shared in file order, for pixel-identical legacy ports) |
+| `output` | `width`/`height` (video), `logicalWidth`/`logicalHeight` (pixel canvas), `fps`, `duration`, `background`. The upscale must be the same whole number on both axes. |
+| `palette` | Named colours `"#rrggbb"`; use them anywhere in params as `"$name"` |
+| `camera.keyframes` | `{ time, x, y, easing }`. `x` = camera position (+ right), `y` = world y at screen centre. Easing applies from the previous keyframe. |
+| `layers` | Ordered, back to front: `{ id, space: world\|screen, x, y, parallax, components: [{ id, type, ...params }] }` |
+| `post` | Ordered effects on the world: `grade`, `noise` |
+| `events` | `{ time, target, action, params }`, e.g. `lightsOff`, `launch` (shooting star), `fadeIn`/`fadeOut` |
+
+Parallax: a layer or component with factor `p` moves by `round(-camera.x × p)`
+pixels, so every layer lands on whole pixels. Component types, their params and
+the actions they accept are defined next to each component (`params`, `actions`)
+and listed in `src/scene/registry.ts`. Errors name the JSON path, e.g.
+`layers[0].components[1].type: unknown component type "sparkle" (known: …)`.
 
 ## Legacy reference scene
 
@@ -75,11 +99,14 @@ another frame, run `renderFrame(600)` in the browser console (frame n = t n/24 s
 `tests/golden/legacy/` holds reference PNGs (270×480) of frames
 0, 24, 120, 240, 480, 720 and 900, rendered from `legacy/scene.html`.
 
-`tests/regression.test.ts` (part of `npm test`) renders the same frames with
-the **component port** (`src/scenes/desertLab.ts`, through the preview page on a
-private Vite server) in headless Chromium with software WebGL, and requires an
-exact pixel match. On failure it reports how many pixels differ.
+`tests/regression.test.ts` (part of `npm test`) renders the same frames from
+`scenes/desert-lab.json` (through the preview page on a private Vite server) in
+headless Chromium with software WebGL, and requires an exact pixel match. On
+failure it reports how many pixels differ. It only reads `tests/golden/`: a
+missing frame fails the test, and a final test checks that every golden file's
+hash and mtime are unchanged after the run.
 
 ```bash
-npm run capture:golden   # re-render the golden PNGs from legacy/. Only when a change to the look is approved.
+npm run capture:golden               # writes all frames; refuses if any already exist
+npm run capture:golden -- --update   # overwrite. Only when a change to the look is approved.
 ```

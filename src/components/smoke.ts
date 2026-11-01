@@ -1,6 +1,40 @@
 import { BlurFilter, Container, Graphics } from 'pixi.js';
+import { z } from 'zod';
 import type { SceneComponent } from '../core/component.ts';
-import { campRoot, mix, placeAtCamp, windowLight } from './shared.ts';
+import { color, count, lightCurve, randomValue } from '../scene/primitives.ts';
+import { durationParams, lightLevel, lit, mix, noParams, type Actions, type WithEvents } from './shared.ts';
+
+const wobble = z.strictObject({ speed: z.number(), amount: z.number() });
+
+export const params = z.strictObject({
+  count,
+  /** Puff i starts at age i/count of the cycle; ages loop every `cycle` seconds. */
+  cycle: z.number().positive(),
+  radius: z.number().positive(),
+  color,
+  /** Vent position. */
+  x: z.number(),
+  y: z.number(),
+  /** Per puff: horizontal drift (rng − 0.5) × spread, size factor, wobble phase. */
+  spread: z.number(),
+  size: randomValue,
+  phase: randomValue,
+  rise: z.number(),
+  /** Extra sideways drift: age² × wind. */
+  wind: z.number(),
+  wobbleX: wobble,
+  wobbleY: wobble,
+  /** scale = (base + age × growth) × size */
+  scale: z.strictObject({ base: z.number(), growth: z.number() }),
+  maxAlpha: z.number().min(0).max(1),
+  /** Tint blends cool → warm by max(0, warmAge − age) × light × warmth. */
+  tint: z.strictObject({ cool: color, warm: color, warmAge: z.number(), warmth: z.number() }),
+  light: lightCurve,
+  blur: z.strictObject({ strength: z.number(), quality: z.number().int().positive() }),
+});
+/** lightsOff dims the underlighting; fadeOut fades the smoke over `duration` seconds. */
+export const actions: Actions = { lightsOn: noParams, lightsOff: noParams, fadeOut: durationParams };
+type Config = WithEvents<z.infer<typeof params>>;
 
 interface Puff {
   g: Graphics;
@@ -10,40 +44,45 @@ interface Puff {
   wob: number;
 }
 
-/** Smoke from the roof vent, drifting with the wind. Camp group. rng: 70 × (dx, r, wob). */
-export function smoke(id = 'smoke'): SceneComponent<void> {
-  let root!: Container;
+/** Rising smoke puffs. rng per puff: (drift, size, phase). */
+export function smoke(id: string): SceneComponent<Config> {
+  let cfg!: Config;
+  let fades: { time: number; duration: number }[] = [];
   const PUFFS: Puff[] = [];
   return {
     id,
-    build(_cfg, rng) {
-      root = campRoot();
+    build(config, rng) {
+      cfg = config;
+      fades = cfg.events.filter((e) => e.action === 'fadeOut').map((e) => ({ time: e.time, duration: e.params.duration as number }));
+      const root = new Container();
       const smokeC = new Container();
-      smokeC.filters = [new BlurFilter({ strength: 1.5, quality: 2 })];
+      smokeC.filters = [new BlurFilter({ strength: cfg.blur.strength, quality: cfg.blur.quality })];
       root.addChild(smokeC);
-      for (let i = 0; i < 70; i++) {
+      for (let i = 0; i < cfg.count; i++) {
         const g = new Graphics();
-        g.circle(0, 0, 4).fill(0xc8c2d6);
+        g.circle(0, 0, cfg.radius).fill(cfg.color);
         smokeC.addChild(g);
-        const off = (i / 70) * 6;
-        const dx = (rng.next() - 0.5) * 22;
-        const r = 0.5 + rng.next() * 1.1;
-        const wob = rng.next() * 6.28;
+        const off = (i / cfg.count) * cfg.cycle;
+        const dx = (rng.next() - 0.5) * cfg.spread;
+        const r = cfg.size.base + rng.next() * cfg.size.random;
+        const wob = cfg.phase.base + rng.next() * cfg.phase.random;
         PUFFS.push({ g, off, dx, r, wob });
       }
       return root;
     },
     update(ctx) {
       const { t } = ctx;
-      placeAtCamp(root, t);
-      const lw = windowLight(ctx);
+      const c = cfg;
+      const lw = lightLevel(c.light, ctx, lit(c.events, t));
+      let fade = 1;
+      for (const f of fades) if (t > f.time) fade = (f.time + f.duration - t) / f.duration;
       for (const q of PUFFS) {
-        const a = ((t + q.off) % 6) / 6; // age 0..1
-        q.g.x = 1 + q.dx * a + a * a * 40 + Math.sin(t * 0.9 + q.wob) * 7 * a;
-        q.g.y = -62 - a * 110 + Math.cos(t * 0.7 + q.wob) * 4 * a;
-        q.g.scale.set((0.5 + a * 3.4) * q.r);
-        q.g.alpha = Math.sin(a * Math.PI) * 0.2 * (t > 38.5 ? (40 - t) / 1.5 : 1);
-        q.g.tint = mix(0x9c94b4, 0xffb070, Math.max(0, 0.6 - a) * lw * 0.6); // underlit by window light
+        const a = ((t + q.off) % c.cycle) / c.cycle; // age 0..1
+        q.g.x = c.x + q.dx * a + a * a * c.wind + Math.sin(t * c.wobbleX.speed + q.wob) * c.wobbleX.amount * a;
+        q.g.y = c.y - a * c.rise + Math.cos(t * c.wobbleY.speed + q.wob) * c.wobbleY.amount * a;
+        q.g.scale.set((c.scale.base + a * c.scale.growth) * q.r);
+        q.g.alpha = Math.sin(a * Math.PI) * c.maxAlpha * fade;
+        q.g.tint = mix(c.tint.cool, c.tint.warm, Math.max(0, c.tint.warmAge - a) * lw * c.tint.warmth);
       }
     },
   };

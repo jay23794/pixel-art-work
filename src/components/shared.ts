@@ -1,9 +1,18 @@
-import { Container } from 'pixi.js';
-import { parallaxX } from '../camera/camera.ts';
+import { Graphics } from 'pixi.js';
+import { z } from 'zod';
 import type { FrameContext } from '../core/context.ts';
+import type { LightCurve, SceneEvent, Shape } from '../scene/primitives.ts';
 
-// Helpers shared by the Desert Lab components. Expressions match legacy/scene.html
-// exactly (including evaluation order) so the port stays pixel-identical.
+// Helpers shared by components. Expressions keep the legacy evaluation order so
+// the JSON-driven scene stays pixel-identical to legacy/scene.html.
+
+/** Component config as passed by the factory: validated params plus the events aimed at it. */
+export type WithEvents<P> = P & { readonly events: readonly SceneEvent[] };
+
+/** Event action schemas a component accepts (action → params schema). */
+export type Actions = Record<string, z.ZodType>;
+export const noParams = z.strictObject({});
+export const durationParams = z.strictObject({ duration: z.number().positive() });
 
 export const lerp = (a: number, b: number, f: number): number => a + (b - a) * f;
 
@@ -15,29 +24,35 @@ export const mix = (c1: number, c2: number, f: number): number => {
   return (r << 16) | (g << 8) | b;
 };
 
-/** Height of the Desert Lab world in pixels (the camera shows the bottom part). */
-export const WORLD_H = 840;
-
-/** 1 while the trailer lights are on, 0 after they shut off. */
-export const lightsOn = (t: number): number => (t > 37.2 ? 0 : 1);
-
-/** 1 while the string lights are on, 0 after they shut off. */
-export const bulbsOn = (t: number): number => (t > 36.2 ? 0 : 1);
-
-/** Trailer window/door light level. */
-export const windowLight = (ctx: FrameContext): number =>
-  (0.55 + 0.45 * ctx.pulse) * (0.8 + 0.2 * ctx.env) * lightsOn(ctx.t);
-
-/** The camp group (trailer, generator, string lights, props, smoke) shares one anchor. */
-const CAMP = { x: 118, y: 646, parallax: 0.7 } as const;
-
-export function campRoot(): Container {
-  const root = new Container();
-  root.x = CAMP.x;
-  root.y = CAMP.y;
-  return root;
+/**
+ * 1 if the component's light is on at t, else 0.
+ * lightsOn at T: off until t > T. lightsOff at T: off once t > T.
+ */
+export function lit(events: readonly SceneEvent[], t: number): number {
+  let on = 1;
+  for (const e of events) {
+    if (e.action === 'lightsOn' && !(t > e.time)) on = 0;
+    if (e.action === 'lightsOff' && t > e.time) on = 0;
+  }
+  return on;
 }
 
-export function placeAtCamp(root: Container, t: number): void {
-  root.x = CAMP.x + parallaxX(t, CAMP.parallax);
+/** (base + pulse·p) × (envBase + env·e) × on */
+export const lightLevel = (curve: LightCurve, ctx: FrameContext, on: number): number =>
+  (curve.base + curve.pulse * ctx.pulse) * (curve.envBase + curve.env * ctx.env) * on;
+
+/** Draws shapes in order into g. */
+export function drawShapes(g: Graphics, shapes: readonly Shape[]): void {
+  for (const s of shapes) {
+    const n = s.repeat?.count ?? 1;
+    for (let i = 0; i < n; i++) {
+      const x = s.x + i * (s.repeat?.dx ?? 0);
+      const y = s.y + i * (s.repeat?.dy ?? 0);
+      if (s.type === 'rect') g.rect(x, y, s.w, s.h);
+      else if (s.type === 'roundRect') g.roundRect(x, y, s.w, s.h, s.r);
+      else g.circle(x, y, s.r);
+      if (s.alpha === undefined) g.fill(s.color);
+      else g.fill({ color: s.color, alpha: s.alpha });
+    }
+  }
 }

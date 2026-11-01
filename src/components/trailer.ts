@@ -1,59 +1,68 @@
 import { BlurFilter, Container, Graphics } from 'pixi.js';
+import { z } from 'zod';
 import type { SceneComponent } from '../core/component.ts';
-import { campRoot, mix, placeAtCamp, windowLight } from './shared.ts';
+import { color, lightCurve, shape } from '../scene/primitives.ts';
+import { drawShapes, lightLevel, lit, mix, noParams, type Actions, type WithEvents } from './shared.ts';
 
-/** Aluminium camper with pulsing windows/door and an additive glow. Camp group. */
-export function trailer(id = 'trailer'): SceneComponent<void> {
-  let root!: Container;
+const litColor = z.strictObject({ off: color, on: color });
+
+export const params = z.strictObject({
+  /** Static body art, drawn first. */
+  body: z.array(shape),
+  windows: z.strictObject({ at: z.array(z.tuple([z.number(), z.number()])), w: z.number(), h: z.number(), r: z.number(), ...litColor.shape }),
+  door: z.strictObject({
+    frame: shape,
+    panel: z.strictObject({ x: z.number(), y: z.number(), w: z.number(), h: z.number(), ...litColor.shape }),
+    trim: shape,
+  }),
+  glow: z.strictObject({
+    at: z.array(z.tuple([z.number(), z.number()])),
+    radius: z.number().positive(),
+    color,
+    alpha: z.number().min(0).max(1),
+    blur: z.strictObject({ strength: z.number(), quality: z.number().int().positive() }),
+  }),
+  /** Window/door light level; colours blend off → on by it. */
+  light: lightCurve,
+});
+export const actions: Actions = { lightsOn: noParams, lightsOff: noParams };
+type Config = WithEvents<z.infer<typeof params>>;
+
+/** Camper with windows and door that glow with the light level, plus an additive glow. */
+export function trailer(id: string): SceneComponent<Config> {
+  let cfg!: Config;
   let win!: Graphics;
   let door!: Graphics;
   let winGlow!: Graphics;
   return {
     id,
-    build() {
-      root = campRoot();
+    build(config) {
+      cfg = config;
+      const root = new Container();
       const tr = new Graphics();
-      tr.roundRect(-52, -46, 104, 42, 18).fill(0x5d6070); // body
-      tr.roundRect(-50, -45, 100, 14, 12).fill(0x7c8090); // moonlit top
-      for (let x = -44; x < 48; x += 8) tr.rect(x, -30, 1, 24).fill({ color: 0x3e404c, alpha: 0.8 }); // panel seams
-      tr.rect(-52, -10, 104, 3).fill(0x3a3c46); // skirt
-      tr.circle(-14, -2, 7).fill(0x0c0a10);
-      tr.circle(-14, -2, 3).fill(0x4a4a55); // wheel
-      tr.rect(52, -10, 16, 2).fill(0x2a2a32);
-      tr.rect(66, -10, 2, 8).fill(0x2a2a32); // hitch & jack
-      tr.rect(-6, -60, 14, 14).fill(0x45474f);
-      tr.rect(-8, -62, 18, 3).fill(0x55575f); // roof vent
-      tr.rect(-46, -52, 26, 2).fill(0x2a3a52);
-      tr.rect(-44, -54, 22, 2).fill(0x34507a); // solar panel
+      drawShapes(tr, cfg.body);
       root.addChild(tr);
       win = new Graphics();
       root.addChild(win);
       door = new Graphics();
       root.addChild(door);
       winGlow = new Graphics();
-      winGlow.filters = [new BlurFilter({ strength: 6, quality: 3 })];
+      winGlow.filters = [new BlurFilter({ strength: cfg.glow.blur.strength, quality: cfg.glow.blur.quality })];
       winGlow.blendMode = 'add';
       root.addChild(winGlow);
       return root;
     },
     update(ctx) {
-      placeAtCamp(root, ctx.t);
-      const lw = windowLight(ctx);
+      const lw = lightLevel(cfg.light, ctx, lit(cfg.events, ctx.t));
+      const { windows: w, door: d, glow } = cfg;
       win.clear();
-      [
-        [-40, -36],
-        [18, -36],
-      ].forEach(([x, y]) => win.roundRect(x as number, y as number, 16, 9, 2).fill(mix(0x201008, 0xffb04a, lw)));
+      for (const [x, y] of w.at) win.roundRect(x, y, w.w, w.h, w.r).fill(mix(w.off, w.on, lw));
       door.clear();
-      door.rect(-2, -38, 12, 30).fill(0x2a2c34);
-      door.rect(0, -36, 7, 27).fill(mix(0x1a0c06, 0xffc066, lw));
-      door.rect(10, -38, 3, 30).fill(0x6c7080);
+      drawShapes(door, [d.frame]);
+      door.rect(d.panel.x, d.panel.y, d.panel.w, d.panel.h).fill(mix(d.panel.off, d.panel.on, lw));
+      drawShapes(door, [d.trim]);
       winGlow.clear();
-      [
-        [-32, -32],
-        [26, -32],
-        [4, -22],
-      ].forEach(([x, y]) => winGlow.circle(x as number, y as number, 10).fill({ color: 0xff9a3a, alpha: 0.55 * lw }));
+      for (const [x, y] of glow.at) winGlow.circle(x, y, glow.radius).fill({ color: glow.color, alpha: glow.alpha * lw });
     },
   };
 }

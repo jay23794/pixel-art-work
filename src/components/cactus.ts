@@ -1,25 +1,46 @@
 import { Graphics } from 'pixi.js';
+import { z } from 'zod';
 import type { SceneComponent } from '../core/component.ts';
+import { color } from '../scene/primitives.ts';
+import type { Actions, WithEvents } from './shared.ts';
 
-export interface CactusConfig {
+const arm = z.strictObject({
+  /** Arm joins the trunk at y − h × at. */
+  at: z.number(),
+  /** Horizontal part: (x + dx, joinY, w × h). */
+  dx: z.number(),
+  w: z.number(),
+  h: z.number(),
+  /** Upright part: (x + upDx, joinY − rise, upW × upH). */
+  upDx: z.number(),
+  rise: z.number(),
+  upW: z.number(),
+  upH: z.number(),
+});
+
+export const params = z.strictObject({
   /** Trunk left edge and ground line. */
-  x: number;
-  y: number;
-  h: number;
-  color: number;
-}
+  x: z.number(),
+  y: z.number(),
+  h: z.number().positive(),
+  trunkWidth: z.number().positive(),
+  arms: z.array(arm),
+  color,
+});
+export const actions: Actions = {};
+type Config = WithEvents<z.infer<typeof params>>;
 
-/** Saguaro silhouette. Static (no parallax, as in legacy). */
-export function cactus(id: string): SceneComponent<CactusConfig> {
+/** Saguaro silhouette. Static. */
+export function cactus(id: string): SceneComponent<Config> {
   return {
     id,
-    build({ x, y, h, color: col }) {
+    build({ x, y, h, trunkWidth, arms, color: col }) {
       const g = new Graphics();
-      g.rect(x, y - h, 4, h).fill(col);
-      g.rect(x - 5, y - h * 0.62, 5, 3).fill(col);
-      g.rect(x - 5, y - h * 0.62 - 9, 3, 10).fill(col);
-      g.rect(x + 4, y - h * 0.45, 5, 3).fill(col);
-      g.rect(x + 6, y - h * 0.45 - 7, 3, 8).fill(col);
+      g.rect(x, y - h, trunkWidth, h).fill(col);
+      for (const a of arms) {
+        g.rect(x + a.dx, y - h * a.at, a.w, a.h).fill(col);
+        g.rect(x + a.upDx, y - h * a.at - a.rise, a.upW, a.upH).fill(col);
+      }
       return g;
     },
     update() {},

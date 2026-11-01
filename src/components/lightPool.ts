@@ -1,29 +1,32 @@
 import { Graphics } from 'pixi.js';
+import { z } from 'zod';
 import { parallaxX } from '../camera/camera.ts';
 import type { SceneComponent } from '../core/component.ts';
-import type { FrameContext } from '../core/context.ts';
-import { bulbsOn, windowLight } from './shared.ts';
+import { color, lightCurve, parallax } from '../scene/primitives.ts';
+import { lightLevel, lit, noParams, type Actions, type WithEvents } from './shared.ts';
 
-export interface LightPoolConfig {
-  x: number;
-  y: number;
-  /** Ring k (3 → 1) has radii (rx + k·rxStep, ry + k·ryStep). */
-  rx: number;
-  rxStep: number;
-  ry: number;
-  ryStep: number;
-  color: number;
-  /** What lights the pool: the trailer door/windows or the string lights. */
-  source: 'door' | 'bulbs';
-}
+export const params = z.strictObject({
+  x: z.number(),
+  y: z.number(),
+  /** Ring k (rings → 1) has radii (rx + k·rxStep, ry + k·ryStep). */
+  rings: z.number().int().positive(),
+  rx: z.number(),
+  rxStep: z.number(),
+  ry: z.number(),
+  ryStep: z.number(),
+  color,
+  /** Ring alpha = alpha × light level. */
+  alpha: z.number().min(0).max(1),
+  light: lightCurve,
+  parallax,
+});
+export const actions: Actions = { lightsOn: noParams, lightsOff: noParams };
+type Config = WithEvents<z.infer<typeof params>>;
 
-const alphaFor = (source: LightPoolConfig['source'], ctx: FrameContext): number =>
-  source === 'door' ? 0.07 * windowLight(ctx) : 0.05 * bulbsOn(ctx.t) * (0.6 + 0.4 * ctx.pulse);
-
-/** Soft elliptical glow on the sand, drawn under the objects that cast it. */
-export function lightPool(id: string): SceneComponent<LightPoolConfig> {
+/** Soft elliptical glow on the ground, drawn under the objects that cast it. */
+export function lightPool(id: string): SceneComponent<Config> {
   let g!: Graphics;
-  let cfg!: LightPoolConfig;
+  let cfg!: Config;
   return {
     id,
     build(config) {
@@ -32,10 +35,10 @@ export function lightPool(id: string): SceneComponent<LightPoolConfig> {
       return g;
     },
     update(ctx) {
-      const alpha = alphaFor(cfg.source, ctx);
+      const alpha = cfg.alpha * lightLevel(cfg.light, ctx, lit(cfg.events, ctx.t));
       g.clear();
-      for (let k = 3; k >= 1; k--) g.ellipse(cfg.x, cfg.y, cfg.rx + k * cfg.rxStep, cfg.ry + k * cfg.ryStep).fill({ color: cfg.color, alpha });
-      g.x = parallaxX(ctx.t, 0.7);
+      for (let k = cfg.rings; k >= 1; k--) g.ellipse(cfg.x, cfg.y, cfg.rx + k * cfg.rxStep, cfg.ry + k * cfg.ryStep).fill({ color: cfg.color, alpha });
+      g.x = parallaxX(ctx.camera, cfg.parallax);
     },
   };
 }

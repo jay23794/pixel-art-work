@@ -56,7 +56,7 @@ describe('Desert Lab matches the legacy golden frames', () => {
   const before = snapshotGolden();
   let scene: FrameRenderer;
   beforeAll(async () => {
-    scene = await openScene();
+    scene = await openScene('desert-lab');
   }, 60_000);
   afterAll(async () => {
     await scene?.close();
