@@ -21,7 +21,7 @@ window.ready = (async () => {
   const load = Object.entries(SCENES).find(([path]) => sceneName(path) === name)?.[1];
   if (!load) throw new Error(`scene "${name}" not found in scenes/ (available: ${names.join(', ')})`);
 
-  const scene = await createScene(loadScene(await load(), `scenes/${name}.json`));
+  const scene = await createScene(loadScene(await load(), { source: `scenes/${name}.json` }));
   document.body.appendChild(scene.canvas);
   window.renderFrame = (n) => {
     scene.renderFrame(n);

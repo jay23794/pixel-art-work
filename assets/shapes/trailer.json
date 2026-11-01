@@ -1,0 +1,23 @@
+{
+  "id": "trailer",
+  "type": "shape",
+  "width": 120,
+  "height": 67,
+  "anchor": { "x": 52, "y": 62 },
+  "shapes": [
+    { "type": "roundRect", "x": 0, "y": 16, "w": 104, "h": 42, "r": 18, "color": "#5d6070" },
+    { "type": "roundRect", "x": 2, "y": 17, "w": 100, "h": 14, "r": 12, "color": "#7c8090" },
+    { "type": "rect", "x": 8, "y": 32, "w": 1, "h": 24, "color": "#3e404c", "alpha": 0.8, "repeat": { "count": 12, "dx": 8 } },
+    { "type": "rect", "x": 0, "y": 52, "w": 104, "h": 3, "color": "#3a3c46" },
+    { "type": "circle", "x": 38, "y": 60, "r": 7, "color": "#0c0a10" },
+    { "type": "circle", "x": 38, "y": 60, "r": 3, "color": "#4a4a55" },
+    { "type": "rect", "x": 104, "y": 52, "w": 16, "h": 2, "color": "#2a2a32" },
+    { "type": "rect", "x": 118, "y": 52, "w": 2, "h": 8, "color": "#2a2a32" },
+    { "type": "rect", "x": 46, "y": 2, "w": 14, "h": 14, "color": "#45474f" },
+    { "type": "rect", "x": 44, "y": 0, "w": 18, "h": 3, "color": "#55575f" },
+    { "type": "rect", "x": 6, "y": 10, "w": 26, "h": 2, "color": "#2a3a52" },
+    { "type": "rect", "x": 8, "y": 8, "w": 22, "h": 2, "color": "#34507a" },
+    { "type": "rect", "x": 50, "y": 24, "w": 12, "h": 30, "color": "#2a2c34" },
+    { "type": "rect", "x": 62, "y": 24, "w": 3, "h": 30, "color": "#6c7080" }
+  ]
+}

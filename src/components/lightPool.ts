@@ -2,8 +2,8 @@ import { Graphics } from 'pixi.js';
 import { z } from 'zod';
 import { parallaxX } from '../camera/camera.ts';
 import type { SceneComponent } from '../core/component.ts';
-import { color, lightCurve, parallax } from '../scene/primitives.ts';
-import { lightLevel, lit, noParams, type Actions, type WithEvents } from './shared.ts';
+import { color, numberOrSignal, parallax } from '../scene/primitives.ts';
+import { read, type Actions, type WithEvents } from './shared.ts';
 
 export const params = z.strictObject({
   x: z.number(),
@@ -15,12 +15,13 @@ export const params = z.strictObject({
   ry: z.number(),
   ryStep: z.number(),
   color,
-  /** Ring alpha = alpha × light level. */
+  /** Ring alpha = alpha × level. */
   alpha: z.number().min(0).max(1),
-  light: lightCurve,
+  /** Light level, usually a signal. */
+  level: numberOrSignal,
   parallax,
 });
-export const actions: Actions = { lightsOn: noParams, lightsOff: noParams };
+export const actions: Actions = {};
 type Config = WithEvents<z.infer<typeof params>>;
 
 /** Soft elliptical glow on the ground, drawn under the objects that cast it. */
@@ -35,7 +36,7 @@ export function lightPool(id: string): SceneComponent<Config> {
       return g;
     },
     update(ctx) {
-      const alpha = cfg.alpha * lightLevel(cfg.light, ctx, lit(cfg.events, ctx.t));
+      const alpha = cfg.alpha * read(cfg.level, ctx);
       g.clear();
       for (let k = cfg.rings; k >= 1; k--) g.ellipse(cfg.x, cfg.y, cfg.rx + k * cfg.rxStep, cfg.ry + k * cfg.ryStep).fill({ color: cfg.color, alpha });
       g.x = parallaxX(ctx.camera, cfg.parallax);

@@ -39,53 +39,44 @@
     "sandSpeck": "#6a4a44",
     "doorLight": "#ffa040",
     "bulbLight": "#ffd090",
-    "cactusNear": "#140c16",
-    "cactusFar": "#1a1020",
-    "trailerBody": "#5d6070",
-    "trailerTop": "#7c8090",
-    "trailerSeam": "#3e404c",
-    "trailerSkirt": "#3a3c46",
-    "tyre": "#0c0a10",
-    "hub": "#4a4a55",
-    "hitch": "#2a2a32",
-    "vent": "#45474f",
-    "ventCap": "#55575f",
-    "solar": "#2a3a52",
-    "solarLit": "#34507a",
     "windowOff": "#201008",
     "windowOn": "#ffb04a",
     "windowGlow": "#ff9a3a",
-    "doorFrame": "#2a2c34",
     "doorOff": "#1a0c06",
     "doorOn": "#ffc066",
-    "doorTrim": "#6c7080",
-    "generator": "#2a2c30",
-    "generatorPanel": "#1a1b1e",
     "ledOn": "#40ff70",
     "ledOff": "#0c3a18",
-    "cable": "#111114",
-    "pole": "#1c1418",
     "wire": "#120c10",
     "bulbDark": "#201a18",
     "bulbWarm": "#ffd27a",
     "bulbTeal": "#52e0d0",
     "bulbPink": "#ff6a8a",
-    "chair": "#5a2a2a",
-    "chairLegs": "#000222",
-    "crate": "#4a3424",
-    "crateBand": "#2a1c14",
     "smoke": "#c8c2d6",
     "smokeCool": "#9c94b4",
     "smokeWarm": "#ffb070",
     "dust": "#ffd08a",
     "grass": "#0e0a10"
   },
+  "signals": {
+    "lightsOn": {"type": "steps", "keys": [[0, 1], [37.2, 0]]},
+    "windowLight": {
+      "type": "curve",
+      "base": 0.55,
+      "pulse": 0.45,
+      "envBase": 0.8,
+      "env": 0.2,
+      "gate": "@lightsOn"
+    },
+    "bulbCircuit": {"type": "steps", "keys": [[0, 1], [36.2, 0]]},
+    "bulbsOn": {"type": "steps", "keys": [[0, 0], [2, 1], [36.2, 0]]},
+    "bulbGlow": {"type": "curve", "base": 0.6, "pulse": 0.4, "gate": "@bulbCircuit"}
+  },
   "camera": {
     "keyframes": [
-      { "time": 0, "x": 4, "y": 600 },
-      { "time": 13.089969389957473, "x": -10, "y": 600, "easing": "easeOutSine" },
-      { "time": 39.269908169872416, "x": 18, "y": 600, "easing": "easeInOutSine" },
-      { "time": 40, "x": 17.94630452370177, "y": 600, "easing": "easeInQuad" }
+      {"time": 0, "x": 4, "y": 600},
+      {"time": 13.089969389957473, "x": -10, "y": 600, "easing": "easeOutSine"},
+      {"time": 39.269908169872416, "x": 18, "y": 600, "easing": "easeInOutSine"},
+      {"time": 40, "x": 17.94630452370177, "y": 600, "easing": "easeInQuad"}
     ]
   },
   "layers": [
@@ -108,9 +99,9 @@
           "type": "milkyWay",
           "count": 260,
           "color": "$milky",
-          "x": { "base": -60, "random": 390 },
-          "y": { "base": 40, "slope": 0.9, "spread": 70 },
-          "alpha": { "base": 0.18, "random": 0.2 },
+          "x": {"base": -60, "random": 390},
+          "y": {"base": 40, "slope": 0.9, "spread": 70},
+          "alpha": {"base": 0.18, "random": 0.2},
           "parallax": 0.1
         },
         {
@@ -118,16 +109,16 @@
           "type": "starfield",
           "color": "$star",
           "layers": [
-            { "count": 90, "parallax": 0.15 },
-            { "count": 55, "parallax": 0.3 },
-            { "count": 25, "parallax": 0.5, "bigChance": 0.4 }
+            {"count": 90, "parallax": 0.15},
+            {"count": 55, "parallax": 0.3},
+            {"count": 25, "parallax": 0.5, "bigChance": 0.4}
           ],
           "bigAlpha": 0.5,
-          "x": { "base": -50, "random": 370 },
-          "y": { "base": 0, "random": 470 },
-          "phase": { "base": 0, "random": 6.28 },
-          "speed": { "base": 1, "random": 2 },
-          "twinkle": { "min": 0.35, "range": 0.65 }
+          "x": {"base": -50, "random": 370},
+          "y": {"base": 0, "random": 470},
+          "phase": {"base": 0, "random": 6.28},
+          "speed": {"base": 1, "random": 2},
+          "twinkle": {"min": 0.35, "range": 0.65}
         },
         {
           "id": "moon",
@@ -136,12 +127,12 @@
           "y": 110,
           "radius": 13,
           "color": "$moon",
-          "shadow": { "x": 5, "y": -3, "radius": 12, "color": "$moonShadow" },
+          "shadow": {"x": 5, "y": -3, "radius": 12, "color": "$moonShadow"},
           "glowColor": "$moonGlow",
           "glow": [
-            { "radius": 38, "alpha": 0.05 },
-            { "radius": 28, "alpha": 0.08 },
-            { "radius": 20, "alpha": 0.12 }
+            {"radius": 38, "alpha": 0.05},
+            {"radius": 28, "alpha": 0.08},
+            {"radius": 20, "alpha": 0.12}
           ],
           "parallax": 0.08
         },
@@ -166,15 +157,15 @@
           "freq": 0.025,
           "phase": 1.2,
           "harmonics": [
-            { "weight": 0.6, "freqMul": 1, "phaseMul": 1 },
-            { "weight": 0.3, "freqMul": 2.7, "phaseMul": 2 },
-            { "weight": 0.1, "freqMul": 6.1, "phaseMul": 0 }
+            {"weight": 0.6, "freqMul": 1, "phaseMul": 1},
+            {"weight": 0.3, "freqMul": 2.7, "phaseMul": 2},
+            {"weight": 0.1, "freqMul": 6.1, "phaseMul": 0}
           ],
           "xMin": -60,
           "xMax": 330,
           "step": 3,
           "bottom": 840,
-          "mesa": { "clamp": 0.55, "bumpFreq": 0.7, "bumpThreshold": 0.95, "bump": 1 },
+          "mesa": {"clamp": 0.55, "bumpFreq": 0.7, "bumpThreshold": 0.95, "bump": 1},
           "parallax": 0.25
         },
         {
@@ -186,15 +177,15 @@
           "freq": 0.04,
           "phase": 3.1,
           "harmonics": [
-            { "weight": 0.6, "freqMul": 1, "phaseMul": 1 },
-            { "weight": 0.3, "freqMul": 2.7, "phaseMul": 2 },
-            { "weight": 0.1, "freqMul": 6.1, "phaseMul": 0 }
+            {"weight": 0.6, "freqMul": 1, "phaseMul": 1},
+            {"weight": 0.3, "freqMul": 2.7, "phaseMul": 2},
+            {"weight": 0.1, "freqMul": 6.1, "phaseMul": 0}
           ],
           "xMin": -60,
           "xMax": 330,
           "step": 3,
           "bottom": 840,
-          "mesa": { "clamp": 0.55, "bumpFreq": 0.7, "bumpThreshold": 0.95, "bump": 1 },
+          "mesa": {"clamp": 0.55, "bumpFreq": 0.7, "bumpThreshold": 0.95, "bump": 1},
           "parallax": 0.4
         },
         {
@@ -206,9 +197,9 @@
           "freq": 0.03,
           "phase": 0.4,
           "harmonics": [
-            { "weight": 0.6, "freqMul": 1, "phaseMul": 1 },
-            { "weight": 0.3, "freqMul": 2.7, "phaseMul": 2 },
-            { "weight": 0.1, "freqMul": 6.1, "phaseMul": 0 }
+            {"weight": 0.6, "freqMul": 1, "phaseMul": 1},
+            {"weight": 0.3, "freqMul": 2.7, "phaseMul": 2},
+            {"weight": 0.1, "freqMul": 6.1, "phaseMul": 0}
           ],
           "xMin": -60,
           "xMax": 330,
@@ -222,18 +213,18 @@
           "x": -60,
           "width": 390,
           "bands": [
-            { "y": 618, "height": 30, "color": "$sand0" },
-            { "y": 646, "height": 30, "color": "$sand1" },
-            { "y": 674, "height": 30, "color": "$sand2" },
-            { "y": 702, "height": 30, "color": "$sand3" },
-            { "y": 730, "height": 200, "color": "$sand4" }
+            {"y": 618, "height": 30, "color": "$sand0"},
+            {"y": 646, "height": 30, "color": "$sand1"},
+            {"y": 674, "height": 30, "color": "$sand2"},
+            {"y": 702, "height": 30, "color": "$sand3"},
+            {"y": 730, "height": 200, "color": "$sand4"}
           ],
           "specks": {
             "count": 160,
             "color": "$sandSpeck",
             "alpha": 0.5,
-            "x": { "base": -50, "random": 370 },
-            "y": { "base": 622, "random": 140 }
+            "x": {"base": -50, "random": 370},
+            "y": {"base": 622, "random": 140}
           },
           "parallax": 0.7
         },
@@ -249,8 +240,8 @@
           "ryStep": 2,
           "color": "$doorLight",
           "alpha": 0.07,
-          "light": { "base": 0.55, "pulse": 0.45, "envBase": 0.8, "env": 0.2 },
-          "parallax": 0.7
+          "parallax": 0.7,
+          "level": "@windowLight"
         },
         {
           "id": "bulbPool",
@@ -264,35 +255,11 @@
           "ryStep": 1.5,
           "color": "$bulbLight",
           "alpha": 0.05,
-          "light": { "base": 0.6, "pulse": 0.4 },
-          "parallax": 0.7
+          "parallax": 0.7,
+          "level": "@bulbGlow"
         },
-        {
-          "id": "cactusLeft",
-          "type": "cactus",
-          "x": 30,
-          "y": 622,
-          "h": 34,
-          "trunkWidth": 4,
-          "arms": [
-            { "at": 0.62, "dx": -5, "w": 5, "h": 3, "upDx": -5, "rise": 9, "upW": 3, "upH": 10 },
-            { "at": 0.45, "dx": 4, "w": 5, "h": 3, "upDx": 6, "rise": 7, "upW": 3, "upH": 8 }
-          ],
-          "color": "$cactusNear"
-        },
-        {
-          "id": "cactusRight",
-          "type": "cactus",
-          "x": 238,
-          "y": 616,
-          "h": 22,
-          "trunkWidth": 4,
-          "arms": [
-            { "at": 0.62, "dx": -5, "w": 5, "h": 3, "upDx": -5, "rise": 9, "upW": 3, "upH": 10 },
-            { "at": 0.45, "dx": 4, "w": 5, "h": 3, "upDx": 6, "rise": 7, "upW": 3, "upH": 8 }
-          ],
-          "color": "$cactusFar"
-        }
+        {"id": "cactusLeft", "type": "shape", "asset": "saguaro-tall", "x": 30, "y": 622},
+        {"id": "cactusRight", "type": "shape", "asset": "saguaro-short", "x": 238, "y": 616}
       ]
     },
     {
@@ -301,81 +268,77 @@
       "y": 646,
       "parallax": 0.7,
       "components": [
+        {"id": "trailer", "type": "shape", "asset": "trailer", "x": 0, "y": 0},
         {
-          "id": "trailer",
-          "type": "trailer",
-          "body": [
-            { "type": "roundRect", "x": -52, "y": -46, "w": 104, "h": 42, "r": 18, "color": "$trailerBody" },
-            { "type": "roundRect", "x": -50, "y": -45, "w": 100, "h": 14, "r": 12, "color": "$trailerTop" },
-            { "type": "rect", "x": -44, "y": -30, "w": 1, "h": 24, "color": "$trailerSeam", "alpha": 0.8, "repeat": { "count": 12, "dx": 8 } },
-            { "type": "rect", "x": -52, "y": -10, "w": 104, "h": 3, "color": "$trailerSkirt" },
-            { "type": "circle", "x": -14, "y": -2, "r": 7, "color": "$tyre" },
-            { "type": "circle", "x": -14, "y": -2, "r": 3, "color": "$hub" },
-            { "type": "rect", "x": 52, "y": -10, "w": 16, "h": 2, "color": "$hitch" },
-            { "type": "rect", "x": 66, "y": -10, "w": 2, "h": 8, "color": "$hitch" },
-            { "type": "rect", "x": -6, "y": -60, "w": 14, "h": 14, "color": "$vent" },
-            { "type": "rect", "x": -8, "y": -62, "w": 18, "h": 3, "color": "$ventCap" },
-            { "type": "rect", "x": -46, "y": -52, "w": 26, "h": 2, "color": "$solar" },
-            { "type": "rect", "x": -44, "y": -54, "w": 22, "h": 2, "color": "$solarLit" }
+          "id": "trailerLights",
+          "type": "windowLights",
+          "panes": [
+            {
+              "type": "roundRect",
+              "x": -40,
+              "y": -36,
+              "w": 16,
+              "h": 9,
+              "r": 2,
+              "off": "$windowOff",
+              "on": "$windowOn"
+            },
+            {
+              "type": "roundRect",
+              "x": 18,
+              "y": -36,
+              "w": 16,
+              "h": 9,
+              "r": 2,
+              "off": "$windowOff",
+              "on": "$windowOn"
+            },
+            {"type": "rect", "x": 0, "y": -36, "w": 7, "h": 27, "off": "$doorOff", "on": "$doorOn"}
           ],
-          "windows": { "at": [[-40, -36], [18, -36]], "w": 16, "h": 9, "r": 2, "off": "$windowOff", "on": "$windowOn" },
-          "door": {
-            "frame": { "type": "rect", "x": -2, "y": -38, "w": 12, "h": 30, "color": "$doorFrame" },
-            "panel": { "x": 0, "y": -36, "w": 7, "h": 27, "off": "$doorOff", "on": "$doorOn" },
-            "trim": { "type": "rect", "x": 10, "y": -38, "w": 3, "h": 30, "color": "$doorTrim" }
-          },
           "glow": {
             "at": [[-32, -32], [26, -32], [4, -22]],
             "radius": 10,
             "color": "$windowGlow",
             "alpha": 0.55,
-            "blur": { "strength": 6, "quality": 3 }
+            "blur": {"strength": 6, "quality": 3}
           },
-          "light": { "base": 0.55, "pulse": 0.45, "envBase": 0.8, "env": 0.2 }
+          "level": "@windowLight"
         },
+        {"id": "generator", "type": "shape", "asset": "generator", "x": -82, "y": 0},
         {
-          "id": "generator",
-          "type": "generator",
-          "body": [
-            { "type": "rect", "x": -82, "y": -12, "w": 16, "h": 12, "color": "$generator" },
-            { "type": "rect", "x": -80, "y": -10, "w": 12, "h": 3, "color": "$generatorPanel" }
-          ],
-          "led": { "x": -70, "y": -9, "on": "$ledOn", "off": "$ledOff", "rate": 2 },
-          "cable": { "from": [-66, -2], "control": [-60, 2], "to": [-52, -6], "width": 1, "color": "$cable" }
+          "id": "generatorLed",
+          "type": "led",
+          "x": -70,
+          "y": -9,
+          "on": "$ledOn",
+          "off": "$ledOff",
+          "rate": 2,
+          "power": "@lightsOn"
         },
+        {"id": "lightPole", "type": "shape", "asset": "light-pole", "x": 96, "y": 0},
         {
           "id": "stringLights",
           "type": "stringLights",
-          "pole": { "type": "rect", "x": 96, "y": -54, "w": 2, "h": 54, "color": "$pole" },
           "count": 10,
           "from": [40, -40],
           "to": [96, -54],
           "sag": 9,
-          "wire": { "width": 1, "color": "$wire" },
-          "bulb": { "size": 2, "dy": 1, "dark": "$bulbDark", "colors": ["$bulbWarm", "$bulbTeal", "$bulbPink"] },
-          "chase": { "period": 3, "dim": 0.35, "rate": 2 },
-          "colorPulse": { "base": 0.6, "gain": 0.4 },
+          "wire": {"width": 1, "color": "$wire"},
+          "bulb": {"size": 2, "dy": 1, "dark": "$bulbDark", "colors": ["$bulbWarm", "$bulbTeal", "$bulbPink"]},
+          "chase": {"period": 3, "dim": 0.35, "rate": 2},
+          "colorPulse": {"base": 0.6, "gain": 0.4},
           "glow": {
             "radius": 4,
             "dx": 1,
             "dy": 2,
             "alpha": 0.5,
-            "pulse": { "base": 0.5, "gain": 0.5 },
-            "blur": { "strength": 4, "quality": 3 }
-          }
+            "pulse": {"base": 0.5, "gain": 0.5},
+            "blur": {"strength": 4, "quality": 3}
+          },
+          "power": "@bulbsOn"
         },
-        {
-          "id": "props",
-          "type": "props",
-          "shapes": [
-            { "type": "rect", "x": 70, "y": -9, "w": 10, "h": 2, "color": "$chair" },
-            { "type": "rect", "x": 70, "y": -17, "w": 2, "h": 10, "color": "$chair" },
-            { "type": "rect", "x": 70, "y": -7, "w": 1, "h": 7, "color": "$chairLegs" },
-            { "type": "rect", "x": 79, "y": -7, "w": 1, "h": 7, "color": "$chairLegs" },
-            { "type": "rect", "x": -36, "y": -8, "w": 12, "h": 8, "color": "$crate" },
-            { "type": "rect", "x": -36, "y": -5, "w": 12, "h": 1, "color": "$crateBand" }
-          ]
-        },
+        {"id": "chair", "type": "shape", "asset": "camp-chair", "x": 70, "y": 0},
+        {"id": "crate", "type": "shape", "asset": "crate", "x": -36, "y": 0},
         {
           "id": "smoke",
           "type": "smoke",
@@ -386,17 +349,17 @@
           "x": 1,
           "y": -62,
           "spread": 22,
-          "size": { "base": 0.5, "random": 1.1 },
-          "phase": { "base": 0, "random": 6.28 },
+          "size": {"base": 0.5, "random": 1.1},
+          "phase": {"base": 0, "random": 6.28},
           "rise": 110,
           "wind": 40,
-          "wobbleX": { "speed": 0.9, "amount": 7 },
-          "wobbleY": { "speed": 0.7, "amount": 4 },
-          "scale": { "base": 0.5, "growth": 3.4 },
+          "wobbleX": {"speed": 0.9, "amount": 7},
+          "wobbleY": {"speed": 0.7, "amount": 4},
+          "scale": {"base": 0.5, "growth": 3.4},
           "maxAlpha": 0.2,
-          "tint": { "cool": "$smokeCool", "warm": "$smokeWarm", "warmAge": 0.6, "warmth": 0.6 },
-          "light": { "base": 0.55, "pulse": 0.45, "envBase": 0.8, "env": 0.2 },
-          "blur": { "strength": 1.5, "quality": 2 }
+          "tint": {"cool": "$smokeCool", "warm": "$smokeWarm", "warmAge": 0.6, "warmth": 0.6},
+          "blur": {"strength": 1.5, "quality": 2},
+          "level": "@windowLight"
         }
       ]
     },
@@ -408,18 +371,19 @@
           "type": "dust",
           "count": 60,
           "color": "$dust",
-          "x": { "base": 90, "random": 140 },
-          "y": { "base": 560, "random": 90 },
-          "phase": { "base": 0, "random": 6.28 },
-          "speed": { "base": 0.3, "random": 1 },
+          "x": {"base": 90, "random": 140},
+          "y": {"base": 560, "random": 90},
+          "phase": {"base": 0, "random": 6.28},
+          "speed": {"base": 0.3, "random": 1},
           "wobbleX": 6,
           "wobbleY": 4,
           "wobbleYSpeed": 0.7,
           "riseSpeed": 2,
           "riseWrap": 10,
-          "alpha": { "base": 0.2, "pulse": 0.5 },
+          "alpha": {"base": 0.2, "pulse": 0.5},
           "twinkleSpeed": 2,
-          "parallax": 0.7
+          "parallax": 0.7,
+          "power": "@lightsOn"
         }
       ]
     },
@@ -436,9 +400,9 @@
           "freq": 0.035,
           "phase": 2.2,
           "harmonics": [
-            { "weight": 0.6, "freqMul": 1, "phaseMul": 1 },
-            { "weight": 0.3, "freqMul": 2.7, "phaseMul": 2 },
-            { "weight": 0.1, "freqMul": 6.1, "phaseMul": 0 }
+            {"weight": 0.6, "freqMul": 1, "phaseMul": 1},
+            {"weight": 0.3, "freqMul": 2.7, "phaseMul": 2},
+            {"weight": 0.1, "freqMul": 6.1, "phaseMul": 0}
           ],
           "xMin": -60,
           "xMax": 330,
@@ -449,15 +413,15 @@
           "id": "grassTufts",
           "type": "grassTufts",
           "count": 16,
-          "x": { "base": -40, "random": 350 },
-          "phase": { "base": 0, "random": 6.28 },
+          "x": {"base": -40, "random": 350},
+          "phase": {"base": 0, "random": 6.28},
           "blades": 2,
           "groundY": 746,
           "tipY": 734,
           "rootSpread": 2,
           "tipSpread": 3,
           "tipDrop": 2,
-          "sway": { "speed": 1.5, "amount": 1.5 },
+          "sway": {"speed": 1.5, "amount": 1.5},
           "width": 1,
           "color": "$grass"
         }
@@ -467,28 +431,29 @@
       "id": "overlay",
       "space": "screen",
       "components": [
-        { "id": "vignette", "type": "vignette", "color": "$black", "cx": 0.5, "cy": 0.55, "inner": 0.2, "outer": 0.75, "alpha": 0.7 },
-        { "id": "fade", "type": "fade", "color": "$black" }
+        {
+          "id": "vignette",
+          "type": "vignette",
+          "color": "$black",
+          "cx": 0.5,
+          "cy": 0.55,
+          "inner": 0.2,
+          "outer": 0.75,
+          "alpha": 0.7
+        },
+        {"id": "fade", "type": "fade", "color": "$black"}
       ]
     }
   ],
   "post": [
-    { "type": "grade", "brightness": 0.9, "envGain": 0.18, "pulseGain": 0.06 },
-    { "type": "noise", "amount": 0.06, "seed": 0.3, "cycle": 13 }
+    {"type": "grade", "brightness": 0.9, "envGain": 0.18, "pulseGain": 0.06},
+    {"type": "noise", "amount": 0.06, "seed": 0.3, "cycle": 13}
   ],
   "events": [
-    { "time": 0, "target": "fade", "action": "fadeIn", "params": { "duration": 1.5 } },
-    { "time": 2, "target": "stringLights", "action": "lightsOn" },
-    { "time": 23.45, "target": "shootingStar", "action": "launch", "params": { "x": 40, "y": 60 } },
-    { "time": 32.83, "target": "shootingStar", "action": "launch", "params": { "x": 150, "y": 30 } },
-    { "time": 36.2, "target": "stringLights", "action": "lightsOff" },
-    { "time": 36.2, "target": "bulbPool", "action": "lightsOff" },
-    { "time": 37.2, "target": "trailer", "action": "lightsOff" },
-    { "time": 37.2, "target": "doorPool", "action": "lightsOff" },
-    { "time": 37.2, "target": "generator", "action": "lightsOff" },
-    { "time": 37.2, "target": "smoke", "action": "lightsOff" },
-    { "time": 37.2, "target": "dust", "action": "lightsOff" },
-    { "time": 38.3, "target": "fade", "action": "fadeOut", "params": { "duration": 1.7 } },
-    { "time": 38.5, "target": "smoke", "action": "fadeOut", "params": { "duration": 1.5 } }
+    {"time": 0, "target": "fade", "action": "fadeIn", "params": {"duration": 1.5}},
+    {"time": 23.45, "target": "shootingStar", "action": "launch", "params": {"x": 40, "y": 60}},
+    {"time": 32.83, "target": "shootingStar", "action": "launch", "params": {"x": 150, "y": 30}},
+    {"time": 38.3, "target": "fade", "action": "fadeOut", "params": {"duration": 1.7}},
+    {"time": 38.5, "target": "smoke", "action": "fadeOut", "params": {"duration": 1.5}}
   ]
 }

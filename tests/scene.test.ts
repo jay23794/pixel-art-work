@@ -35,25 +35,43 @@ describe('loadScene: scenes/desert-lab.json', () => {
     expect(def.layers.map((l) => l.id)).toEqual(['backdrop', 'camp', 'air', 'foreground', 'overlay']);
     expect(def.layers.flatMap((l) => l.components).map((c) => c.id)).toEqual([
       'sky', 'milkyWay', 'starfield', 'moon', 'shootingStar', 'farMesa', 'midMesa', 'dunes', 'ground', 'doorPool', 'bulbPool',
-      'cactusLeft', 'cactusRight', 'trailer', 'generator', 'stringLights', 'props', 'smoke', 'dust', 'fgDune', 'grassTufts',
-      'vignette', 'fade',
+      'cactusLeft', 'cactusRight', 'trailer', 'trailerLights', 'generator', 'generatorLed', 'lightPole', 'stringLights', 'chair',
+      'crate', 'smoke', 'dust', 'fgDune', 'grassTufts', 'vignette', 'fade',
     ]);
   });
 
   it('resolves palette references to colours', () => {
-    expect((component(def, 'props')?.params.shapes as { color: number }[])[2]?.color).toBe(0x000222);
     expect(component(def, 'moon')?.params.color).toBe(0xfff0d0);
+    expect(component(def, 'generatorLed')?.params.on).toBe(0x40ff70);
+  });
+
+  it('keeps signal references as names and lists signals in definition order', () => {
+    expect(component(def, 'doorPool')?.params.level).toBe('windowLight');
+    expect(def.signals.map(([name]) => name)).toEqual(['lightsOn', 'windowLight', 'bulbCircuit', 'bulbsOn', 'bulbGlow']);
+    expect(def.signals[1]?.[1]).toEqual({ type: 'curve', base: 0.55, pulse: 0.45, envBase: 0.8, env: 0.2, gate: 'lightsOn' });
+  });
+
+  it('attaches validated shape assets', () => {
+    const asset = component(def, 'chair')?.params.shapeAsset as { id: string; anchor: unknown; shapes: { color: number }[] };
+    expect(asset.id).toBe('camp-chair');
+    expect(asset.anchor).toEqual({ x: 0, y: 17 });
+    expect(asset.shapes[2]?.color).toBe(0x000222);
+  });
+
+  it('contains no inline shape art', () => {
+    const text = JSON.stringify(raw().layers);
+    expect(text).not.toMatch(/"shapes"|"body"|"type":"circle"|"type":"curve"/);
   });
 
   it('applies defaults', () => {
     expect(def.layers[0]).toMatchObject({ space: 'world', x: 0, y: 0, parallax: 0 });
     expect(def.camera.keyframes[0]?.easing).toBe('linear');
-    expect(component(def, 'bulbPool')?.params.light).toEqual({ base: 0.6, pulse: 0.4, envBase: 1, env: 0 });
+    expect(component(def, 'cactusLeft')?.params.parallax).toBe(0);
   });
 
   it('attaches events to their target components, in file order', () => {
     expect(component(def, 'fade')?.events.map((e) => e.action)).toEqual(['fadeIn', 'fadeOut']);
-    expect(component(def, 'stringLights')?.events.map((e) => [e.time, e.action])).toEqual([[2, 'lightsOn'], [36.2, 'lightsOff']]);
+    expect(component(def, 'smoke')?.events.map((e) => [e.time, e.action])).toEqual([[38.5, 'fadeOut']]);
     expect(component(def, 'shootingStar')?.events.map((e) => e.params)).toEqual([{ x: 40, y: 60 }, { x: 150, y: 30 }]);
   });
 
@@ -88,7 +106,7 @@ describe('loadScene: invalid scenes fail with the JSON path and a useful message
 
   it('unknown component type', () => {
     expect(issuesFor((s) => (s.layers[0].components[1].type = 'sparkle'))).toEqual([
-      { path: 'layers[0].components[1].type', message: expect.stringMatching(/unknown component type "sparkle" \(known: cactus, .*starfield/) },
+      { path: 'layers[0].components[1].type', message: expect.stringMatching(/unknown component type "sparkle" \(known: dust, fade, .*shape, .*windowLights\)$/) },
     ]);
   });
 
@@ -135,8 +153,69 @@ describe('loadScene: invalid scenes fail with the JSON path and a useful message
 
   it('event action the target does not support', () => {
     expect(issuesFor((s) => (s.events[1].target = 'sky'))).toEqual([
-      { path: 'events[1].action', message: 'component "sky" (sky) has no action "lightsOn" (supports: none)' },
+      { path: 'events[1].action', message: 'component "sky" (sky) has no action "launch" (supports: none)' },
     ]);
+  });
+
+  it('unknown signal reference', () => {
+    expect(issuesFor((s) => (s.layers[0].components[9].level = '@porchLight'))).toEqual([
+      {
+        path: 'layers[0].components[9].level',
+        message: 'unknown signal "@porchLight" (signals: bulbCircuit, bulbGlow, bulbsOn, lightsOn, windowLight)',
+      },
+    ]);
+  });
+
+  it('signal gate that is unknown or defined later', () => {
+    expect(issuesFor((s) => (s.signals.windowLight.gate = '@mains'))).toEqual([
+      { path: 'signals.windowLight.gate', message: 'unknown signal "@mains" (signals: lightsOn)' },
+    ]);
+    expect(issuesFor((s) => (s.signals.windowLight.gate = '@bulbsOn'))).toEqual([
+      { path: 'signals.windowLight.gate', message: 'gate "@bulbsOn" must be defined above "windowLight"' },
+    ]);
+  });
+
+  it('signal key beyond duration', () => {
+    expect(issuesFor((s) => s.signals.lightsOn.keys.push([42, 1]))).toEqual([
+      { path: 'signals.lightsOn.keys[2][0]', message: 'key at 42s is beyond the scene duration (40s)' },
+    ]);
+  });
+
+  it('unknown shape asset id', () => {
+    expect(issuesFor((s) => (s.layers[1].components[2].asset = 'tent'))).toEqual([
+      { path: 'layers[1].components[2].asset', message: expect.stringMatching(/^unknown shape asset "tent" \(known: camp-chair, crate, generator, /) },
+    ]);
+  });
+});
+
+describe('loadScene: shape assets are validated', () => {
+  const load = (shapeAssets: Record<string, unknown>) => {
+    try {
+      loadScene(raw(), { shapeAssets });
+    } catch (e) {
+      if (e instanceof SceneValidationError) return [...e.issues];
+      throw e;
+    }
+    throw new Error('expected the scene to be rejected');
+  };
+  const realAssets = (): Record<string, Json> =>
+    Object.fromEntries(
+      ['camp-chair', 'crate', 'generator', 'light-pole', 'saguaro-short', 'saguaro-tall', 'trailer'].map((id) => [
+        id,
+        JSON.parse(readFileSync(new URL(`../assets/shapes/${id}.json`, import.meta.url), 'utf8')),
+      ]),
+    );
+
+  it('reports bad asset content with the asset file and JSON path', () => {
+    const assets = realAssets();
+    delete assets.crate?.shapes[1].w;
+    expect(load(assets)).toEqual([{ path: 'assets/shapes/crate.json:shapes[1].w', message: expect.stringMatching(/expected number/i) }]);
+  });
+
+  it('requires the asset id to match its file name', () => {
+    const assets = realAssets();
+    (assets.crate as Json).id = 'box';
+    expect(load(assets)).toEqual([{ path: 'assets/shapes/crate.json:id', message: 'asset id "box" must match its file name "crate"' }]);
   });
 
   it('event beyond duration', () => {
@@ -153,6 +232,6 @@ describe('loadScene: invalid scenes fail with the JSON path and a useful message
     const s = raw();
     s.seed = 'x';
     s.output.fps = -1;
-    expect(() => loadScene(s, 'scenes/broken.json')).toThrow(/Invalid scenes\/broken\.json:\n {2}seed: .*\n {2}output\.fps: /);
+    expect(() => loadScene(s, { source: 'scenes/broken.json' })).toThrow(/Invalid scenes\/broken\.json:\n {2}seed: .*\n {2}output\.fps: /);
   });
 });

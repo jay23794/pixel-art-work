@@ -3,11 +3,14 @@ import { applyCamera, evaluateCamera, parallaxX, type CameraConfig } from '../ca
 import type { SceneComponent } from './component.ts';
 import { createFrameContext, type FrameContext, type Timing } from './context.ts';
 import { createRng, deriveSeed, type Rng } from './random.ts';
+import { evaluateSignals, type SignalDef } from './signals.ts';
 
 export interface AppConfig extends Timing {
   /** Scene seed. By default each component gets its own stream via deriveSeed(seed, id). */
   readonly seed: number;
   readonly camera: CameraConfig;
+  /** Evaluated in order once per frame into ctx.signals. */
+  readonly signals?: readonly (readonly [string, SignalDef])[];
   readonly background?: number;
 }
 
@@ -63,8 +66,12 @@ export async function createApp(config: AppConfig): Promise<PixelForgeApp> {
   const world = new Container();
   pixi.stage.addChild(world);
 
-  const camera = (t: number) => evaluateCamera(config.camera, t);
-  const contextFor = (n: number) => createFrameContext(n, config, camera);
+  const signalDefs = config.signals ?? [];
+  const sources = {
+    camera: (t: number) => evaluateCamera(config.camera, t),
+    signals: (inputs: Parameters<typeof evaluateSignals>[1]) => evaluateSignals(signalDefs, inputs),
+  };
+  const contextFor = (n: number) => createFrameContext(n, config, sources);
   const layers: Layer[] = [];
   const components: SceneComponent<never>[] = [];
   const frameHooks: ((ctx: FrameContext) => void)[] = [];

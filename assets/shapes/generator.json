@@ -1,0 +1,12 @@
+{
+  "id": "generator",
+  "type": "shape",
+  "width": 30,
+  "height": 14,
+  "anchor": { "x": 0, "y": 12 },
+  "shapes": [
+    { "type": "rect", "x": 0, "y": 0, "w": 16, "h": 12, "color": "#2a2c30" },
+    { "type": "rect", "x": 2, "y": 2, "w": 12, "h": 3, "color": "#1a1b1e" },
+    { "type": "curve", "x": 16, "y": 10, "control": [22, 14], "to": [30, 6], "width": 1, "color": "#111114" }
+  ]
+}

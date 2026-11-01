@@ -1,8 +1,8 @@
 import { BlurFilter, Container, Graphics } from 'pixi.js';
 import { z } from 'zod';
 import type { SceneComponent } from '../core/component.ts';
-import { color, count, lightCurve, randomValue } from '../scene/primitives.ts';
-import { durationParams, lightLevel, lit, mix, noParams, type Actions, type WithEvents } from './shared.ts';
+import { color, count, numberOrSignal, randomValue } from '../scene/primitives.ts';
+import { durationParams, mix, read, type Actions, type WithEvents } from './shared.ts';
 
 const wobble = z.strictObject({ speed: z.number(), amount: z.number() });
 
@@ -27,13 +27,14 @@ export const params = z.strictObject({
   /** scale = (base + age × growth) × size */
   scale: z.strictObject({ base: z.number(), growth: z.number() }),
   maxAlpha: z.number().min(0).max(1),
-  /** Tint blends cool → warm by max(0, warmAge − age) × light × warmth. */
+  /** Tint blends cool → warm by max(0, warmAge − age) × level × warmth. */
   tint: z.strictObject({ cool: color, warm: color, warmAge: z.number(), warmth: z.number() }),
-  light: lightCurve,
+  /** Underlighting level, usually a signal. */
+  level: numberOrSignal,
   blur: z.strictObject({ strength: z.number(), quality: z.number().int().positive() }),
 });
-/** lightsOff dims the underlighting; fadeOut fades the smoke over `duration` seconds. */
-export const actions: Actions = { lightsOn: noParams, lightsOff: noParams, fadeOut: durationParams };
+/** fadeOut: fades the smoke out over `duration` seconds. */
+export const actions: Actions = { fadeOut: durationParams };
 type Config = WithEvents<z.infer<typeof params>>;
 
 interface Puff {
@@ -73,7 +74,7 @@ export function smoke(id: string): SceneComponent<Config> {
     update(ctx) {
       const { t } = ctx;
       const c = cfg;
-      const lw = lightLevel(c.light, ctx, lit(c.events, t));
+      const lw = read(c.level, ctx);
       let fade = 1;
       for (const f of fades) if (t > f.time) fade = (f.time + f.duration - t) / f.duration;
       for (const q of PUFFS) {

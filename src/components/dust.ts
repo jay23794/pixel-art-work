@@ -2,8 +2,8 @@ import { Container, Graphics } from 'pixi.js';
 import { z } from 'zod';
 import { parallaxX } from '../camera/camera.ts';
 import type { SceneComponent } from '../core/component.ts';
-import { color, count, parallax, randomValue } from '../scene/primitives.ts';
-import { lit, noParams, type Actions, type WithEvents } from './shared.ts';
+import { color, count, numberOrSignal, parallax, randomValue } from '../scene/primitives.ts';
+import { read, type Actions, type WithEvents } from './shared.ts';
 
 export const params = z.strictObject({
   count,
@@ -19,12 +19,14 @@ export const params = z.strictObject({
   wobbleYSpeed: z.number(),
   riseSpeed: z.number(),
   riseWrap: z.number().positive(),
-  /** alpha = (base + pulse·ctx.pulse) × (0.5 + 0.5·sin(t·twinkleSpeed + phase)) × on */
+  /** alpha = (base + pulse·ctx.pulse) × (0.5 + 0.5·sin(t·twinkleSpeed + phase)) × power */
   alpha: z.strictObject({ base: z.number(), pulse: z.number() }),
   twinkleSpeed: z.number(),
+  /** Usually an on/off signal. */
+  power: numberOrSignal,
   parallax,
 });
-export const actions: Actions = { lightsOn: noParams, lightsOff: noParams };
+export const actions: Actions = {};
 type Config = WithEvents<z.infer<typeof params>>;
 
 interface Mote {
@@ -61,7 +63,7 @@ export function dust(id: string): SceneComponent<Config> {
     update(ctx) {
       const { t, pulse: p } = ctx;
       const k = cfg;
-      const off = lit(k.events, t);
+      const off = read(k.power, ctx);
       for (const d of DUST) {
         d.g.x = Math.round(d.x + Math.sin(t * d.sp + d.ph) * k.wobbleX);
         d.g.y = Math.round(d.y + Math.cos(t * d.sp * k.wobbleYSpeed + d.ph) * k.wobbleY - ((t * k.riseSpeed) % k.riseWrap));

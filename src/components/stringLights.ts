@@ -1,14 +1,13 @@
 import { BlurFilter, Container, Graphics } from 'pixi.js';
 import { z } from 'zod';
 import type { SceneComponent } from '../core/component.ts';
-import { color, shape } from '../scene/primitives.ts';
-import { drawShapes, lerp, lit, mix, noParams, type Actions, type WithEvents } from './shared.ts';
+import { color, numberOrSignal } from '../scene/primitives.ts';
+import { lerp, mix, read, type Actions, type WithEvents } from './shared.ts';
 
 const point = z.tuple([z.number(), z.number()]);
 const pulseCurve = z.strictObject({ base: z.number(), gain: z.number() });
 
 export const params = z.strictObject({
-  pole: shape,
   /** Bulb i of count sits at lerp(from, to, i/(count−1)) with sag·sin(f·π) added to y. */
   count: z.number().int().min(2),
   from: point,
@@ -28,11 +27,13 @@ export const params = z.strictObject({
     pulse: pulseCurve,
     blur: z.strictObject({ strength: z.number(), quality: z.number().int().positive() }),
   }),
+  /** Usually an on/off signal. */
+  power: numberOrSignal,
 });
-export const actions: Actions = { lightsOn: noParams, lightsOff: noParams };
+export const actions: Actions = {};
 type Config = WithEvents<z.infer<typeof params>>;
 
-/** Bulbs on a sagging wire with a chase pattern. */
+/** Bulbs on a sagging wire with a chase pattern (the pole is a separate shape asset). */
 export function stringLights(id: string): SceneComponent<Config> {
   let cfg!: Config;
   let bulbs!: Graphics;
@@ -43,9 +44,6 @@ export function stringLights(id: string): SceneComponent<Config> {
     build(config) {
       cfg = config;
       const root = new Container();
-      const pole = new Graphics();
-      drawShapes(pole, [cfg.pole]);
-      root.addChild(pole);
       const wire = new Graphics();
       root.addChild(wire);
       bulbs = new Graphics();
@@ -69,7 +67,7 @@ export function stringLights(id: string): SceneComponent<Config> {
       const { t, pulse: p } = ctx;
       const { bulb, chase, colorPulse, glow } = cfg;
       const bi = Math.floor(t * chase.rate);
-      const on0 = lit(cfg.events, t);
+      const on0 = read(cfg.power, ctx);
       bulbs.clear();
       bulbGlow.clear();
       BULBS.forEach(([x, y], i) => {

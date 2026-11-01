@@ -19,14 +19,15 @@ export type RandomValue = z.infer<typeof randomValue>;
 /** Parallax factor: the layer moves by round(-camera.x × parallax) pixels. */
 export const parallax = z.number().default(0);
 
-/** Light level curve: (base + pulse·ctx.pulse) × (envBase + env·ctx.env), times 1/0 for on/off. */
-export const lightCurve = z.strictObject({
-  base: z.number(),
-  pulse: z.number(),
-  envBase: z.number().default(1),
-  env: z.number().default(0),
-});
-export type LightCurve = z.infer<typeof lightCurve>;
+/** "@name" → the signal's name. The loader checks the signal exists. */
+export const signalRef = z
+  .string()
+  .regex(/^@[A-Za-z][\w-]*$/, 'expected a signal reference "@name"')
+  .transform((s) => s.slice(1));
+
+/** A number, or "@name" for a signal read every frame from ctx.signals. */
+export const numberOrSignal = z.union([z.number(), signalRef]);
+export type NumberOrSignal = z.infer<typeof numberOrSignal>;
 
 const shapeCommon = {
   color,
@@ -35,13 +36,30 @@ const shapeCommon = {
   repeat: z.strictObject({ count: z.number().int().positive(), dx: z.number().default(0), dy: z.number().default(0) }).optional(),
 };
 
-/** A filled primitive, drawn in list order into one Graphics. */
+const point = z.tuple([z.number(), z.number()]);
+
+/** A filled primitive (or a stroked curve), drawn in list order into one Graphics. */
 export const shape = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('rect'), x: z.number(), y: z.number(), w: z.number(), h: z.number(), ...shapeCommon }),
   z.strictObject({ type: z.literal('roundRect'), x: z.number(), y: z.number(), w: z.number(), h: z.number(), r: z.number(), ...shapeCommon }),
   z.strictObject({ type: z.literal('circle'), x: z.number(), y: z.number(), r: z.number(), ...shapeCommon }),
+  /** Quadratic curve stroke (x/y is its start point). */
+  z.strictObject({ type: z.literal('curve'), x: z.number(), y: z.number(), control: point, to: point, width: z.number().positive(), ...shapeCommon }),
 ]);
 export type Shape = z.infer<typeof shape>;
+
+/** Static drawn art in assets/shapes/<id>.json. Coordinates are local: (0, 0) is the top-left of the box. */
+export const shapeAssetSchema = z.strictObject({
+  id: z.string(),
+  type: z.literal('shape'),
+  /** Bounding box of the art. */
+  width: z.number().positive(),
+  height: z.number().positive(),
+  /** Local point that lands on the placing component's (x, y). */
+  anchor: z.strictObject({ x: z.number(), y: z.number() }),
+  shapes: z.array(shape).min(1),
+});
+export type ShapeAsset = z.infer<typeof shapeAssetSchema>;
 
 /** A scheduled change for one component, e.g. lights off or a shooting star. */
 export interface SceneEvent {

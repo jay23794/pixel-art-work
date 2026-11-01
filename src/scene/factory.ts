@@ -17,6 +17,7 @@ export async function createScene(def: SceneDef): Promise<PixelForgeApp> {
     duration: o.duration,
     seed: def.seed,
     camera: def.camera,
+    signals: def.signals,
     background: o.backgroundColor,
   });
 

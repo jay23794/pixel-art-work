@@ -51,6 +51,21 @@ const keyframeSchema = z.strictObject({
 });
 
 /** A component entry: { id, type, ...params }. Params are validated per type by the loader. */
+const signalSchema = z.discriminatedUnion('type', [
+  /** Piecewise constant: [[time, value], ...]. A key's value applies just after its time. */
+  z.strictObject({ type: z.literal('steps'), keys: z.array(z.tuple([time, z.number()])).min(1) }),
+  /** (base + pulse·ctx.pulse) × (envBase + env·ctx.env) × gate, where gate is "@signal" defined above. */
+  z.strictObject({
+    type: z.literal('curve'),
+    base: z.number(),
+    pulse: z.number().default(0),
+    envBase: z.number().default(1),
+    env: z.number().default(0),
+    gate: z.string().regex(/^@[A-Za-z][\w-]*$/, 'expected a signal reference "@name"').optional(),
+  }),
+]);
+export type SignalSchema = z.infer<typeof signalSchema>;
+
 const componentEntry = z.looseObject({ id, type: z.string() });
 
 const layerSchema = z.strictObject({
@@ -89,6 +104,8 @@ export const sceneSchema = z
     output: outputSchema,
     /** Named colours, referenced from params as "$name". */
     palette: z.record(id, hex).default({}),
+    /** Named time-varying values, referenced from params as "@name". Evaluated in this order every frame. */
+    signals: z.record(id, signalSchema).default({}),
     camera: z.strictObject({ keyframes: z.array(keyframeSchema).min(1) }),
     layers: z.array(layerSchema).min(1),
     /** Post-processing on the world, in order: [{ type, ...params }]. */
@@ -103,6 +120,26 @@ export const sceneSchema = z
       if (prev && k.time <= prev.time)
         ctx.addIssue({ code: 'custom', path: ['camera', 'keyframes', i, 'time'], message: `keyframe times must increase (${k.time}s follows ${prev.time}s)` });
     });
+    const defined = new Set<string>();
+    for (const [name, sig] of Object.entries(s.signals)) {
+      if (sig.type === 'steps') {
+        sig.keys.forEach(([t], i) => {
+          if (t > d) ctx.addIssue({ code: 'custom', path: ['signals', name, 'keys', i, 0], message: `key at ${t}s is beyond the scene duration (${d}s)` });
+          const prev = sig.keys[i - 1];
+          if (prev && t <= prev[0])
+            ctx.addIssue({ code: 'custom', path: ['signals', name, 'keys', i, 0], message: `key times must increase (${t}s follows ${prev[0]}s)` });
+        });
+      } else if (sig.gate !== undefined && !defined.has(sig.gate.slice(1))) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['signals', name, 'gate'],
+          message: s.signals[sig.gate.slice(1)]
+            ? `gate "${sig.gate}" must be defined above "${name}"`
+            : `unknown signal "${sig.gate}" (signals: ${[...defined].join(', ') || 'none defined above'})`,
+        });
+      }
+      defined.add(name);
+    }
     s.events.forEach((e, i) => {
       if (e.time > d) ctx.addIssue({ code: 'custom', path: ['events', i, 'time'], message: `event at ${e.time}s is beyond the scene duration (${d}s)` });
     });

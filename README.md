@@ -43,7 +43,8 @@ src/scene/       scene schema (zod), loader, factory, component registry
 src/components/  scene building blocks (+ post effects in post.ts)
 src/camera/      keyframed camera, whole-pixel parallax
 src/video/       frame capture + ffmpeg encoding
-scenes/          JSON scene files
+scenes/          JSON scene files (composition only)
+assets/shapes/   static drawn art as shape assets (<id>.json)
 legacy/          original Desert Lab files (scene.html is the music-free reference)
 tests/           unit tests
 tests/golden/    reference frames for regression tests
@@ -62,10 +63,32 @@ A scene is one JSON file in `scenes/`, validated by `src/scene/schema.ts`
 | `rng` | `per-component` (default; each component gets `deriveSeed(seed, id)`) or `legacy-lcg` (one Park–Miller stream shared in file order, for pixel-identical legacy ports) |
 | `output` | `width`/`height` (video), `logicalWidth`/`logicalHeight` (pixel canvas), `fps`, `duration`, `background`. The upscale must be the same whole number on both axes. |
 | `palette` | Named colours `"#rrggbb"`; use them anywhere in params as `"$name"` |
+| `signals` | Named time-varying values, used in params as `"@name"` (see below) |
 | `camera.keyframes` | `{ time, x, y, easing }`. `x` = camera position (+ right), `y` = world y at screen centre. Easing applies from the previous keyframe. |
 | `layers` | Ordered, back to front: `{ id, space: world\|screen, x, y, parallax, components: [{ id, type, ...params }] }` |
 | `post` | Ordered effects on the world: `grade`, `noise` |
-| `events` | `{ time, target, action, params }`, e.g. `lightsOff`, `launch` (shooting star), `fadeIn`/`fadeOut` |
+| `events` | One-off moments: `{ time, target, action, params }`, e.g. `launch` (shooting star), `fadeIn`/`fadeOut` |
+
+**Signals** are evaluated once per frame, in file order, into `ctx.signals`.
+They depend only on the frame (t, n, pulse, env; audio later), so rendering
+stays deterministic:
+
+- `steps`: `{ "keys": [[0, 1], [37.2, 0]] }`. A key's value applies just after
+  its time; before that, the first key's value.
+- `curve`: `(base + pulse·ctx.pulse) × (envBase + env·ctx.env) × gate`. `gate`
+  is an optional `"@signal"` defined above it.
+
+Params that take a level or power (e.g. `lightPool.level`, `dust.power`) accept
+a number or `"@name"`.
+
+**Shape assets** (`assets/shapes/<id>.json`) hold static art:
+`{ id, type: "shape", width, height, anchor, shapes }`. Coordinates are local
+((0, 0) = top-left of the box), and `anchor` is the local point that lands on
+the placing component's position. Place one with the `shape` component:
+`{ "id": "chair", "type": "shape", "asset": "camp-chair", "x": 70, "y": 0 }`.
+Shapes are `rect`, `roundRect`, `circle` (filled, optional `alpha` and `repeat`)
+and `curve` (stroked quadratic). Colours in assets are hex. Unknown asset ids
+and invalid asset files are reported at load time.
 
 Parallax: a layer or component with factor `p` moves by `round(-camera.x × p)`
 pixels, so every layer lands on whole pixels. Component types, their params and
