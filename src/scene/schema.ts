@@ -94,13 +94,8 @@ export const sceneSchema = z
   .strictObject({
     version: z.literal(1),
     id,
+    /** Each component draws from its own stream, createRng(deriveSeed(seed, component id)). */
     seed: z.number().int(),
-    /**
-     * per-component: each component draws from its own stream, deriveSeed(seed, id).
-     * legacy-lcg: one Park–Miller stream (seeded with `seed`) shared by all components
-     * in document order, for pixel-identical legacy ports.
-     */
-    rng: z.enum(['per-component', 'legacy-lcg']).default('per-component'),
     output: outputSchema,
     /** Named colours, referenced from params as "$name". */
     palette: z.record(id, hex).default({}),

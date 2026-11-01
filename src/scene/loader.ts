@@ -11,7 +11,6 @@ export interface SceneDef {
   readonly version: 1;
   readonly id: string;
   readonly seed: number;
-  readonly rng: SceneFile['rng'];
   readonly output: SceneFile['output'] & { readonly scale: number; readonly backgroundColor: number };
   readonly camera: { readonly keyframes: readonly Keyframe[] };
   /** In evaluation order. */
@@ -209,7 +208,6 @@ export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
     version: file.version,
     id: file.id,
     seed: file.seed,
-    rng: file.rng,
     output: { ...o, scale: o.width / o.logicalWidth, backgroundColor: parseInt(o.background.slice(1), 16) },
     camera: { keyframes: file.camera.keyframes },
     signals: Object.entries(file.signals).map(([name, sig]): [string, SignalDef] => {

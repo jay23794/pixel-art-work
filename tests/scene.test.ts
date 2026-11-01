@@ -28,7 +28,6 @@ describe('loadScene: scenes/desert-lab.json', () => {
 
   it('loads with output size and a whole-number upscale', () => {
     expect(def.output).toMatchObject({ width: 1080, height: 1920, logicalWidth: 270, logicalHeight: 480, fps: 24, duration: 40, scale: 4 });
-    expect(def.rng).toBe('legacy-lcg');
   });
 
   it('keeps layer and component order', () => {

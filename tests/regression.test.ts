@@ -3,13 +3,14 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { PNG } from 'pngjs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { GOLDEN_FRAMES, goldenPath, ROOT, type FrameRenderer } from '../scripts/browser.ts';
+import { GOLDEN_FRAMES, goldenPath, ROOT, type FrameRenderer, type GoldenSet } from '../scripts/browser.ts';
 import { openScene } from '../scripts/scene-render.ts';
 
 // This test only ever READS tests/golden/. It never creates or updates a golden
 // frame: a missing one is a failure. To (re)generate them, see scripts/capture-golden.ts.
 
 const GOLDEN_ROOT = join(ROOT, 'tests', 'golden');
+const SET: GoldenSet = 'v1';
 
 /** Path → "sha256 mtimeMs size" for every file under tests/golden/. */
 function snapshotGolden(): Record<string, string> {
@@ -29,7 +30,7 @@ function snapshotGolden(): Record<string, string> {
 }
 
 function readGolden(n: number): PNG {
-  const file = goldenPath(n);
+  const file = goldenPath(n, SET);
   if (!existsSync(file)) {
     throw new Error(`golden frame missing: ${relative(ROOT, file)} (tests never create it; see scripts/capture-golden.ts)`);
   }
@@ -52,7 +53,7 @@ function countDiffPixels(a: PNG, b: PNG): number {
   return diff;
 }
 
-describe('Desert Lab matches the legacy golden frames', () => {
+describe(`Desert Lab matches the ${SET} golden frames`, () => {
   const before = snapshotGolden();
   let scene: FrameRenderer;
   beforeAll(async () => {

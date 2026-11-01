@@ -1,16 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { createLegacyRng, createRng, deriveSeed } from '../src/core/random.ts';
+import { createRng, deriveSeed } from '../src/core/random.ts';
 
 const take = <T>(next: () => T, count: number): T[] => Array.from({ length: count }, next);
-
-/** The generator from legacy/scene.html, evaluated from the file itself. */
-function legacyRndFromSource(): () => number {
-  const html = readFileSync(new URL('../legacy/scene.html', import.meta.url), 'utf8');
-  const m = /let seed = (\d+); const rnd = (\(\) => .+?);\n/.exec(html);
-  if (!m) throw new Error('legacy rnd() not found in legacy/scene.html');
-  return new Function(`let seed = ${m[1]}; return ${m[2]};`)() as () => number;
-}
 
 describe('createRng', () => {
   it('gives the same sequence for the same seed', () => {
@@ -74,25 +65,5 @@ describe('deriveSeed', () => {
     const ids = ['stars', 'stars2', 'smoke', 'dust', 'a', 'b', ''];
     expect(new Set(ids.map((id) => deriveSeed(11, id))).size).toBe(ids.length);
     expect(deriveSeed(11, 'stars')).not.toBe(deriveSeed(12, 'stars'));
-  });
-});
-
-describe('createLegacyRng', () => {
-  it('matches rnd() from legacy/scene.html exactly', () => {
-    const original = legacyRndFromSource();
-    const ported = createLegacyRng(11);
-    expect(take(() => ported.next(), 10000)).toEqual(take(original, 10000));
-  });
-
-  it('is the Park–Miller minimal standard generator', () => {
-    // Park & Miller (1988): from seed 1, the 10000th state is 1043618065.
-    const rng = createLegacyRng(1);
-    let x = 0;
-    for (let i = 0; i < 10000; i++) x = rng.next();
-    expect(Math.round(x * 2147483647)).toBe(1043618065);
-  });
-
-  it('defaults to the legacy seed 11', () => {
-    expect(take(createLegacyRng().next, 5)).toEqual(take(createLegacyRng(11).next, 5));
   });
 });

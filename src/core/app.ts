@@ -2,11 +2,11 @@ import { Application, Container } from 'pixi.js';
 import { applyCamera, evaluateCamera, parallaxX, type CameraConfig } from '../camera/camera.ts';
 import type { SceneComponent } from './component.ts';
 import { createFrameContext, type FrameContext, type Timing } from './context.ts';
-import { createRng, deriveSeed, type Rng } from './random.ts';
+import { createRng, deriveSeed } from './random.ts';
 import { evaluateSignals, type SignalDef } from './signals.ts';
 
 export interface AppConfig extends Timing {
-  /** Scene seed. By default each component gets its own stream via deriveSeed(seed, id). */
+  /** Scene seed. Each component gets its own stream: createRng(deriveSeed(seed, id)). */
   readonly seed: number;
   readonly camera: CameraConfig;
   /** Evaluated in order once per frame into ctx.signals. */
@@ -30,8 +30,6 @@ export interface Layer {
 
 export interface AddOptions {
   readonly layer: Layer;
-  /** Defaults to the component's own stream; pass one to share a stream (e.g. the legacy LCG). */
-  readonly rng?: Rng;
 }
 
 export interface PixelForgeApp {
@@ -43,6 +41,8 @@ export interface PixelForgeApp {
   addLayer(options: LayerOptions): Layer;
   /** Builds a component and adds it on top of the ones already in its layer. */
   add<C>(component: SceneComponent<C>, config: C, options: AddOptions): void;
+  /** The container a component's build() returned, by component id. */
+  container(id: string): Container | undefined;
   /** Called every frame after the components update (e.g. post effects). */
   onFrame(fn: (ctx: FrameContext) => void): void;
   /** Updates everything for frame n and renders once. */
@@ -75,7 +75,7 @@ export async function createApp(config: AppConfig): Promise<PixelForgeApp> {
   const layers: Layer[] = [];
   const components: SceneComponent<never>[] = [];
   const frameHooks: ((ctx: FrameContext) => void)[] = [];
-  const ids = new Set<string>();
+  const containers = new Map<string, Container>();
 
   return {
     pixi,
@@ -91,12 +91,15 @@ export async function createApp(config: AppConfig): Promise<PixelForgeApp> {
       return layer;
     },
     add<C>(component: SceneComponent<C>, cfg: C, options: AddOptions) {
-      if (ids.has(component.id)) throw new Error(`duplicate component id "${component.id}"`);
-      ids.add(component.id);
-      const rng = options.rng ?? createRng(deriveSeed(config.seed, component.id));
-      options.layer.container.addChild(component.build(cfg, rng, contextFor(0)));
+      if (containers.has(component.id)) throw new Error(`duplicate component id "${component.id}"`);
+      // The component's own stream: adding or removing other components never changes it.
+      const rng = createRng(deriveSeed(config.seed, component.id));
+      const built = component.build(cfg, rng, contextFor(0));
+      containers.set(component.id, built);
+      options.layer.container.addChild(built);
       components.push(component as SceneComponent<never>);
     },
+    container: (id) => containers.get(id),
     onFrame(fn) {
       frameHooks.push(fn);
     },

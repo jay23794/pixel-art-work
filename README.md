@@ -31,7 +31,7 @@ npx playwright install chromium   # headless browser for frame capture and e2e t
 | `npm test`          | Unit tests (Vitest, `tests/**/*.test.ts`)     |
 | `npm run typecheck` | `tsc --noEmit` (strict)                       |
 | `npm run lint`      | ESLint (typescript-eslint, strict)            |
-| `npm run capture:golden` | Render legacy golden frames; refuses to overwrite without `-- --update` |
+| `npm run capture:golden -- v1` | Render the golden frames; refuses to overwrite without `--update` |
 
 Playwright e2e specs go in `tests/e2e/` and run with `npx playwright test`.
 
@@ -59,8 +59,7 @@ A scene is one JSON file in `scenes/`, validated by `src/scene/schema.ts`
 
 | Field | Meaning |
 | --- | --- |
-| `version`, `id`, `seed` | Format version (1), scene id, RNG seed |
-| `rng` | `per-component` (default; each component gets `deriveSeed(seed, id)`) or `legacy-lcg` (one Park–Miller stream shared in file order, for pixel-identical legacy ports) |
+| `version`, `id`, `seed` | Format version (1), scene id, RNG seed. Each component draws from its own stream, `createRng(deriveSeed(seed, id))`, so adding or removing a component never changes another's output. |
 | `output` | `width`/`height` (video), `logicalWidth`/`logicalHeight` (pixel canvas), `fps`, `duration`, `background`. The upscale must be the same whole number on both axes. |
 | `palette` | Named colours `"#rrggbb"`; use them anywhere in params as `"$name"` |
 | `signals` | Named time-varying values, used in params as `"@name"` (see below) |
@@ -99,8 +98,9 @@ and listed in `src/scene/registry.ts`. Errors name the JSON path, e.g.
 ## Legacy reference scene
 
 `legacy/capture.js` and `legacy/render.py` are the original files, unchanged.
-`legacy/scene.html` is the **reference version** of Desert Lab, which the new
-engine is checked against:
+`legacy/scene.html` is the music-free **reference version** of Desert Lab that
+the engine was ported from (pixel-identical up to Prompt 5b; its golden frames
+are in git history before Prompt 6):
 
 - no music: `pulse(t) = 0.5 + 0.5·sin(2t)`, loudness fixed at 0.5, and the
   string-light chase steps at `floor(2t)`
@@ -119,17 +119,20 @@ another frame, run `renderFrame(600)` in the browser console (frame n = t n/24 s
 
 ## Golden frames and regression test
 
-`tests/golden/legacy/` holds reference PNGs (270×480) of frames
-0, 24, 120, 240, 480, 720 and 900, rendered from `legacy/scene.html`.
+`tests/golden/v1/` holds reference PNGs (270×480) of frames
+0, 24, 120, 240, 480, 720 and 900, rendered from `scenes/desert-lab.json`.
 
-`tests/regression.test.ts` (part of `npm test`) renders the same frames from
-`scenes/desert-lab.json` (through the preview page on a private Vite server) in
-headless Chromium with software WebGL, and requires an exact pixel match. On
-failure it reports how many pixels differ. It only reads `tests/golden/`: a
-missing frame fails the test, and a final test checks that every golden file's
-hash and mtime are unchanged after the run.
+`tests/regression.test.ts` (part of `npm test`) renders the same frames (through
+the real loader and factory on a private Vite server) in headless Chromium with
+software WebGL, and requires an exact pixel match. On failure it reports how
+many pixels differ. It only reads `tests/golden/`: a missing frame fails the
+test, and a final test checks that every golden file's hash and mtime are
+unchanged after the run.
+
+`tests/isolation.test.ts` proves that adding or removing a component leaves
+every other component's rendered output unchanged.
 
 ```bash
-npm run capture:golden               # writes all frames; refuses if any already exist
-npm run capture:golden -- --update   # overwrite. Only when a change to the look is approved.
+npm run capture:golden -- v1            # writes all frames; refuses if any already exist
+npm run capture:golden -- v1 --update   # overwrite. Only when a change to the look is approved.
 ```

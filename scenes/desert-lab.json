@@ -2,7 +2,6 @@
   "version": 1,
   "id": "desert-lab",
   "seed": 11,
-  "rng": "legacy-lcg",
   "output": {
     "width": 1080,
     "height": 1920,

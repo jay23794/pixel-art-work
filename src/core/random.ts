@@ -58,18 +58,3 @@ export function deriveSeed(sceneSeed: number, id: string): number {
   h ^= h >>> 16;
   return h >>> 0;
 }
-
-const LCG_MOD = 2147483647; // 2^31 - 1
-const LCG_MUL = 16807;
-
-/**
- * Park–Miller LCG exactly as in legacy/scene.html:
- *   seed = (seed * 16807) % 2147483647; return seed / 2147483647
- * Use only when porting legacy code that must stay pixel-identical. The
- * product stays below 2^53, so float arithmetic is exact.
- * next() returns a value in (0, 1) for any seed in [1, 2^31 - 2].
- */
-export function createLegacyRng(seed = 11): Rng {
-  let s = seed;
-  return rngFrom(() => (s = (s * LCG_MUL) % LCG_MOD) / LCG_MOD);
-}

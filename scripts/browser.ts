@@ -5,8 +5,10 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export const GOLDEN_FRAMES = [0, 24, 120, 240, 480, 720, 900] as const;
-export const GOLDEN_DIR = join(ROOT, 'tests', 'golden', 'legacy');
-export const goldenPath = (n: number): string => join(GOLDEN_DIR, `f${String(n).padStart(4, '0')}.png`);
+/** Golden frame sets: tests/golden/<set>/. */
+export type GoldenSet = 'v1';
+export const goldenDir = (set: GoldenSet): string => join(ROOT, 'tests', 'golden', set);
+export const goldenPath = (n: number, set: GoldenSet): string => join(goldenDir(set), `f${String(n).padStart(4, '0')}.png`);
 
 /** A page exposing window.ready and window.renderFrame(n) → PNG data URL. */
 export interface FrameRenderer {

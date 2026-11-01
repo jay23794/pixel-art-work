@@ -1,12 +1,11 @@
 import { createApp, type PixelForgeApp } from '../core/app.ts';
-import { createLegacyRng } from '../core/random.ts';
 import type { SceneDef } from './loader.ts';
 import { COMPONENTS, POST_EFFECTS } from './registry.ts';
 
 /**
  * Builds a runnable scene from a loaded SceneDef: layers and components in file
- * order (which is also the draw order and, with rng "legacy-lcg", the order of
- * random draws), then the post effects as the world's filters.
+ * order (which is also the draw order), then the post effects as the world's
+ * filters. Each component draws from its own random stream (see core/app.ts).
  */
 export async function createScene(def: SceneDef): Promise<PixelForgeApp> {
   const o = def.output;
@@ -21,13 +20,12 @@ export async function createScene(def: SceneDef): Promise<PixelForgeApp> {
     background: o.backgroundColor,
   });
 
-  const shared = def.rng === 'legacy-lcg' ? createLegacyRng(def.seed) : undefined;
   for (const l of def.layers) {
     const layer = app.addLayer({ space: l.space, x: l.x, y: l.y, parallax: l.parallax });
     for (const c of l.components) {
       const type = COMPONENTS[c.type];
       if (!type) throw new Error(`unknown component type "${c.type}"`); // loadScene already rejects this
-      app.add(type.create(c.id), { ...c.params, events: c.events } as never, shared ? { layer, rng: shared } : { layer });
+      app.add(type.create(c.id), { ...c.params, events: c.events } as never, { layer });
     }
   }
 
