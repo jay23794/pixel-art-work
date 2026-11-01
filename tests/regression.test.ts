@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { PNG } from 'pngjs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { GOLDEN_FRAMES, goldenPath, ROOT, type FrameRenderer, type GoldenSet } from '../scripts/browser.ts';
+import { GOLDEN_FRAMES, goldenPath, ROOT, type FrameRenderer, type GoldenSet } from '../scripts/golden.ts';
 import { openScene } from '../scripts/scene-render.ts';
 
 // This test only ever READS tests/golden/. It never creates or updates a golden

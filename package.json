@@ -13,7 +13,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "capture:golden": "tsx scripts/capture-golden.ts"
+    "capture:golden": "tsx scripts/capture-golden.ts",
+    "render": "tsx src/video/cli.ts"
   },
   "dependencies": {
     "pixi.js": "^8.22.0",

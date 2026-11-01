@@ -28,7 +28,7 @@ function legacyPixi(): Plugin {
 export default defineConfig({
   plugins: [legacyPixi()],
   // Pre-bundle up front so the first page load never triggers a dependency reload.
-  optimizeDeps: { include: ['pixi.js'] },
+  optimizeDeps: { include: ['pixi.js', 'zod'] },
   test: {
     include: ['tests/**/*.test.ts'],
   },

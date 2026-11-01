@@ -8,7 +8,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { relative } from 'node:path';
-import { GOLDEN_FRAMES, goldenDir, goldenPath, type FrameRenderer, type GoldenSet } from './browser.ts';
+import { GOLDEN_FRAMES, goldenDir, goldenPath, type FrameRenderer, type GoldenSet } from './golden.ts';
 import { openScene } from './scene-render.ts';
 
 const RENDERERS: Record<GoldenSet, () => Promise<FrameRenderer>> = {

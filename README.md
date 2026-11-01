@@ -3,8 +3,7 @@
 Renders 16-bit pixel-art scenes from JSON scene descriptions into MP4 video.
 Logical canvas 270×480, exported at 1080×1920 (4× nearest-neighbour), 24 fps.
 
-> Status: Desert Lab renders from `scenes/desert-lab.json`, pixel-identical to the
-> legacy reference. Video export (`src/video/`) is not built yet.
+> Status: Desert Lab renders from `scenes/desert-lab.json` and exports to MP4.
 
 ## Requirements
 
@@ -26,6 +25,7 @@ npx playwright install chromium   # headless browser for frame capture and e2e t
 
 | Command             | What it does                                  |
 | ------------------- | --------------------------------------------- |
+| `npm run render -- <scene.json>` | Export MP4 + frame-hash manifest (see Export) |
 | `npm run dev`       | Preview at http://localhost:5173 (`?scene=desert-lab&frame=N`; console: `renderFrame(n)`) |
 | `npm run build`     | Type-check, then production build into `dist/` |
 | `npm test`          | Unit tests (Vitest, `tests/**/*.test.ts`)     |
@@ -42,7 +42,7 @@ src/core/        app, renderer, seeded random, frame context
 src/scene/       scene schema (zod), loader, factory, component registry
 src/components/  scene building blocks (+ post effects in post.ts)
 src/camera/      keyframed camera, whole-pixel parallax
-src/video/       frame capture + ffmpeg encoding
+src/video/       MP4 export: renderer page, Playwright capture, FFmpeg encoding, CLI
 scenes/          JSON scene files (composition only)
 assets/shapes/   static drawn art as shape assets (<id>.json)
 legacy/          original Desert Lab files (scene.html is the music-free reference)
@@ -94,6 +94,31 @@ pixels, so every layer lands on whole pixels. Component types, their params and
 the actions they accept are defined next to each component (`params`, `actions`)
 and listed in `src/scene/registry.ts`. Errors name the JSON path, e.g.
 `layers[0].components[1].type: unknown component type "sparkle" (known: …)`.
+
+## Export
+
+```bash
+npm run render -- scenes/desert-lab.json --out out/desert-lab.mp4 [--from N --to M]
+```
+
+`--from`/`--to` are inclusive frame numbers (default: the whole scene, 0–959 for
+Desert Lab). Output: `out/desert-lab.mp4` and `out/desert-lab.hashes.json`
+(sha256 of every raw frame plus a combined `digest`). Timing is printed at the end.
+
+How it works:
+
+1. The scene is validated in Node first (bad scenes fail before a browser starts).
+2. A private Vite server (random port) serves `render.html`; headless Chromium
+   (software WebGL) loads the scene through the same loader and factory as the preview.
+3. For each frame the page calls `renderFrame(n)`, reads raw RGBA at logical size
+   (270×480, no PNG/base64) and POSTs the bytes to the Node process, which hashes
+   them and streams them to FFmpeg's stdin as `rawvideo` (with backpressure).
+4. FFmpeg: `scale=1080:1920:flags=neighbor` (BT.709, tagged), `libx264 -tune
+   animation -crf 16 -pix_fmt yuv420p`, `+faststart`.
+
+Any page error, console error or FFmpeg failure stops the export with a non-zero
+exit and a clear message, and the partial MP4 is removed. `tests/export.test.ts`
+renders frames 0–48 twice and requires identical manifests.
 
 ## Legacy reference scene
 

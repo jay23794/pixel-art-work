@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { Keyframe } from '../camera/camera.ts';
 import type { SignalDef } from '../core/signals.ts';
-import { BUNDLED_SHAPE_ASSETS } from './assets.ts';
+import { bundledShapeAssets } from './assets.ts';
 import { shapeAssetSchema, type SceneEvent, type ShapeAsset } from './primitives.ts';
 import { COMPONENTS, POST_EFFECTS } from './registry.ts';
 import { sceneSchema, type SceneFile } from './schema.ts';
@@ -74,7 +74,7 @@ export interface LoadOptions {
  * listing every problem with its JSON path.
  */
 export function loadScene(json: unknown, options: LoadOptions = {}): SceneDef {
-  const { source, shapeAssets = BUNDLED_SHAPE_ASSETS } = options;
+  const { source, shapeAssets = bundledShapeAssets() } = options;
   const issues: SceneIssue[] = [];
   const add = (path: Path, message: string): void => void issues.push({ path: formatPath(path), message });
   // Paths whose palette reference is unknown; already reported, so skip the follow-on colour-format error.
