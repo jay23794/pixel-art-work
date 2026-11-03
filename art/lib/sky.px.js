@@ -54,8 +54,8 @@ var SKY_TIMES = {
  * opts.clouds (default: as designed): { scale, x, y, top } for cumulus. `scale` multiplies their
  * width and height (around their centre); `x`, `y` move the group so the first cumulus is centred
  * on x with its base on y (others keep their offsets); `top` then pushes a cloud down until its
- * highest puff is at or below that y (e.g. 84 keeps it out of the top safe zone). Stratus is
- * unaffected.
+ * highest puff is at or below that y (e.g. 84 keeps it out of the top safe zone).
+ * `stratus: { hide: [i, ...] }` drops those stratus bands (by index in the time's list).
  * opts.sun / opts.moon (default: as designed): { x, y } puts the disk there (after horizon
  * scaling); stars still keep clear of the moon.
  * opts.motion (default: none, still image): for anims, read from c.phase so loops wrap:
@@ -97,7 +97,9 @@ function skySetup(time, opts) {
     sky: src.sky, cloud: src.cloud, glow: src.glow, stars: src.stars, horizon: horizon,
     sun: src.sun && skyPlace(at(src.sun), opts && opts.sun), moon: src.moon && skyPlace(at(src.moon), opts && opts.moon),
     cumulus: skyCloudsFit(src.cumulus.map(at), opts && opts.clouds),
-    stratus: src.stratus.map(at),
+    stratus: src.stratus.map(at).filter(function (_, i) {
+      return !(opts && opts.clouds && opts.clouds.stratus && (opts.clouds.stratus.hide || []).indexOf(i) >= 0)
+    }),
     starLimit: Math.round((Math.round(SKY_H * 2 / 3) - 8) * f),
   }
 }
