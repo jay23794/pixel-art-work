@@ -14,6 +14,7 @@ include("../palettes.px.js")
 include("../lib/noise.px.js")
 include("../lib/dither.px.js")
 include("../lib/sky.px.js")
+include("../lib/breakers.px.js")
 
 var W = 360, H = 640
 var HORIZON = 270
@@ -117,45 +118,22 @@ function clouds(c, m) {
 // ---------------------------------------------------------------- sea
 
 /**
- * The two break spots. Each spot breaks one wave per loop: a wave's age a runs 0..2 —
- * 0..1 it rises out of the swell and comes in, peeling from `from` (whitewater on the `broken`
- * side, PEEL px per unit of age from a = 0.45); 1..2 it has fully broken, the whitewater settles
- * and rolls forward, and at the near spot its foam drives the wash up the sand and back. Two ages
- * one apart are drawn per spot, so the loop wraps seamlessly. a0 = the age shown at phase 0 (the
- * still): far whitewater peeled in to x≈310 from the right, near to x≈120 from the left.
+ * The two break spots (lib/breakers.px.js): each breaks one wave per loop, the near one's foam
+ * drives the wash. At phase 0 (the still): far whitewater peeled in to x≈310 from the right, near
+ * to x≈120 from the left.
  */
 var BREAK = [
   { y: 380, h: 10, broken: 1, from: 390, seed: 1, a0: 0.62 },  // far breaker
   { y: 414, h: 17, broken: -1, from: -30, seed: 2, a0: 0.77 }, // near breaker
 ]
-var PEEL = 470
-function waveAt(b, a) {
-  if (a <= 0 || a >= 2) return null
-  var rise = a < 1 ? Math.min(1, a / 0.5) : Math.max(0, 1 - (a - 1) / 0.55)
-  rise = rise * rise * (3 - 2 * rise) // smoothstep
-  if (rise < 0.08) return null
+function breakerOpts(animate) {
   return {
-    y: b.y, h: b.h, broken: b.broken, seed: b.seed, rise: rise,
-    adv: a < 1 ? -Math.round(10 * (1 - a)) : Math.round(14 * (a - 1)),
-    at: b.from - b.broken * PEEL * Math.max(0, a - 0.45),
+    spots: BREAK, peel: 470, wind: WIND, light: MOON, animate: animate,
+    column: function (x, y) { return !inColumn(x, y, 0) ? 0 : Math.abs(x - LIGHT_X) < columnHalf(y) * 0.4 ? 2 : 1 },
   }
 }
-/** Both spots: the younger wave first, the older (nearer, collapsing) one over it. */
-function waves(c, m) {
-  BREAK.forEach(function (b) {
-    var a = ((m.p + b.a0) % 1 + 1) % 1
-    ;[a, a + 1].forEach(function (age) {
-      var w = waveAt(b, age)
-      if (w) breaker(c, w, m, w.rise, w.adv)
-    })
-  })
-}
-/** The wash's reach: rests at WASH, runs up quickly after the near wave collapses, drains slowly. */
-function washReach(m) {
-  var u = ((m.p + BREAK[1].a0) % 1 + 1) % 1
-  var bump = u < 0.45 ? Math.pow(Math.sin(Math.PI / 2 * u / 0.45), 2) : Math.pow(Math.cos(Math.PI / 2 * (u - 0.45) / 0.55), 2)
-  return WASH + Math.round(18 * bump)
-}
+/** The wash's reach: rests at WASH, runs up after the near wave collapses, drains slowly. */
+function washReach(m) { return WASH + Math.round(18 * breakerWash(breakerOpts(m.on), m.p)) }
 var SEA_END = BREAK[0].y - 12
 
 var UP = { U: "D", D: "d", d: "u", u: "k", k: "k" }, DOWN = { k: "u", u: "d", d: "D", D: "U", U: "U" }
@@ -180,10 +158,12 @@ var ROWS = (function () {
 function bob(m, i) { return m.on && Math.sin(TAU * (2 * m.p - i / ROWS.length)) > 0 ? 1 : 0 }
 
 /** Open sea: sky-reflecting water and perspective wave rows, bigger and choppier toward the beach. */
-function sea(c, m) {
+function seaFill(c) {
   for (var y = HORIZON; y < BREAK[1].y + 4; y++)
     for (var x = 0; x < W; x++) c.px(x, y, waterKey(x, y))
   c.hline(0, HORIZON, W, "u") // a crisp horizon line
+}
+function seaRows(c, m) {
   ROWS.forEach(function (row) {
     var t = row.t, x = Math.floor(hash2(61, row.i, 0) * 20) - 20, n = 0, dy = bob(m, row.i)
     while (x < W) {
@@ -239,74 +219,6 @@ function moonPath(c, m) {
   })
 }
 
-// ---------------------------------------------------------------- breaking waves
-
-/** Rounded foam bumps along the whitewater's top: height above the mound line at x. */
-function bumpsAt(x, seed) {
-  var best = 0
-  for (var j = Math.floor(x / 7) - 2; j <= Math.floor(x / 7) + 2; j++) {
-    var cx = j * 7 + hash2(seed, j, 0) * 4, r = 3 + hash2(seed, j, 1) * 4, dx = x + 0.5 - cx
-    if (Math.abs(dx) < r) best = Math.max(best, Math.sqrt(r * r - dx * dx) * 0.8)
-  }
-  return Math.round(best)
-}
-
-/**
- * A breaking wave across the bay, tallest at its peel point. Clean side: a dark, backlit face
- * (steps from the crest down) under a bright crest line, hot where the moon path crosses it.
- * At the peel point the lip pitches forward: a bright falling curtain over the dark hollow, spray
- * above. Broken side: whitewater with a bumpy top (lit on the moon's side of each bump), a grey,
- * bubbly body darkening toward the base, spray blown off downwind, and a soup band of lace
- * spreading forward. `adv` (loops) moves the wave toward the beach, `rise` scales its height.
- */
-function breaker(c, b, m, rise, adv) {
-  var curlW = Math.round(b.h * 1.4)
-  for (var x = 0; x < W; x++) {
-    var side = (x - b.at) * b.broken // > 0: broken, < -curlW: clean, between: curl
-    var hh = Math.round(b.h * rise * (0.5 + 0.5 * Math.exp(-Math.abs(side) / 80)) * (0.9 + 0.2 * fbm1(b.seed + 30, x / 40)))
-    var base = b.y + adv, top = base - hh
-    if (side < -curlW) { // clean face
-      for (var y = top; y <= base; y++) {
-        var v = (y - top) / Math.max(1, hh), k = v < 0.3 ? "d" : v < 0.65 ? "D" : "U"
-        c.px(x, y, k)
-      }
-      var hot = inColumn(x, top, 0) ? (Math.abs(x - LIGHT_X) < columnHalf(top) * 0.4 ? "w" : "o") : "k"
-      c.px(x, top, hot); c.px(x, top - 1, inColumn(x, top, 0) ? "n" : "u")
-    } else if (side <= 0) { // curl
-      var f = 1 + side / curlW // 0 at the clean end .. 1 at the broken end
-      var lipTop = top - Math.round(2 * Math.sin(Math.PI * f)) // the lip pitches up and over
-      var lip = lipTop + Math.round(hh * 0.95 * Math.pow(f, 1.4))
-      for (var y = lipTop; y <= base; y++) c.px(x, y, y < lip - 1 ? (y - lipTop < 2 ? "u" : "U") : y > lip ? "D" : "w")
-      c.px(x, lipTop, "o"); c.px(x, lip - 1, "o")
-      if (f > 0.4 && hash2(90 + b.seed, x, 0) > 0.35) c.px(x + WIND, lipTop - 1 - Math.round(f * 3 * hash2(93 + b.seed, x, 0)), "m") // spray
-    } else { // whitewater
-      var settle = Math.min(1, side / 110), mound = Math.round(hh * (1.1 - 0.4 * settle))
-      var wtop = base - mound - Math.round(bumpsAt(x, b.seed + 40) * Math.min(1, rise * 1.5)), depth = base + 1 - wtop
-      for (var y = wtop; y <= base + 1; y++) {
-        var d = y - wtop, f = d / depth, k
-        var edgeR = bumpsAt(x + 1, b.seed + 40) < bumpsAt(x, b.seed + 40) // right side of a bump: faces the moon
-        if (d === 0) k = edgeR ? "w" : "o"
-        else if (d < 3) k = edgeR || d === 1 ? "o" : "m"
-        else {
-          var bub = hash2(94 + b.seed, x >> 1, y >> 1)
-          k = f < 0.55 ? (bub > 0.7 ? "o" : "m") : f < 0.85 ? (bub > 0.75 ? "m" : "l") : "c"
-          if (fbm2(b.seed + 5, x / 3, y / 8) < 0.28 && f > 0.4) k = "c" // foam tumbling down the face
-        }
-        c.px(x, y, k)
-      }
-      // spray blown off the top, downwind
-      if (hash2(91 + b.seed, x, 0) > 0.8) c.rect(x + WIND * 2, wtop - 2, 2, 1, "m")
-      if (hash2(92 + b.seed, x, 0) > 0.9) c.px(x + WIND * 5, wtop - 3 - (x & 1), "l")
-    }
-    // soup: foam lace spreading forward from the base (wider under the whitewater)
-    var soup = side > 0 ? 3 + Math.round(5 * fbm1(b.seed + 60, x / 18)) : side > -curlW * 3 ? 2 : 0
-    for (var d = 1; d <= soup; d++) {
-      var y = base + 1 + d
-      if (fbm2(b.seed + 70, x / 4, y / 2) > 0.36 + d * 0.06) c.px(x, y, d === 1 ? "m" : "l")
-    }
-  }
-}
-
 /** Foam lace drifting on the water between the breakers: thin curved threads. */
 function lace(c, m, y0, y1, seed, shift) {
   for (var y = y0; y < y1; y++)
@@ -336,9 +248,11 @@ function washEdge(x, reach) {
  * scalloped foam edge, then wet sand mirroring the sky and the moon faintly (a broken column of
  * pale dashes under the moon), then dry, moonlit sand.
  */
+function wetLine(x) { return WET + Math.round(2 * Math.sin(x / 29)) }
 function beach(c, m, reach) {
-  for (var y = BREAK[1].y + 2; y < 500; y++)
+  for (var y = BREAK[1].y + 2; y < WET + 2; y++)
     for (var x = 0; x < W; x++) {
+      if (y >= wetLine(x)) continue // dry sand: drawn once in dryBeach
       var edge = washEdge(x, reach), k
       if (y < edge - 2) {
         var v = (y - BREAK[1].y) / (edge - BREAK[1].y)
@@ -347,13 +261,10 @@ function beach(c, m, reach) {
       } else if (y <= edge) {
         if (y === edge - 2) { c.px(x, y, "l"); continue }
         k = y === edge ? "m" : "o" // the scalloped foam edge
-      } else if (y < WET + Math.round(2 * Math.sin(x / 29))) {
+      } else {
         var w = (y - edge) / (WET - edge)
         k = w < 0.45 ? "D" : "S" // wet sand mirrors the sky darker, then the sand shows through
         if (Math.abs(x - LIGHT_X) < columnHalf(y) * 0.35 && y % 3 === 1 && hash2(85, x >> 2, y) > 0.3) k = w < 0.45 ? "d" : "s"
-      } else {
-        k = "s" // dry sand, facing up into the moonlight
-        if (y > WET + 4 && (y + Math.round(3 * Math.sin(x / 41))) % 6 === 0 && fbm1(86 + y, x / 40) > 0.6) k = "a" // ripple crests
       }
       c.px(x, y, k)
     }
@@ -362,6 +273,17 @@ function beach(c, m, reach) {
     var e = washEdge(x, reach)
     for (var d = 4; d < 14; d += 4) if (fbm1(87 + d, x / 9) > 0.55) c.px(x, e - d - Math.round(fbm1(88 + d, x / 7) * 2), "c")
   }
+}
+
+/** Dry sand above the dune, facing up into the moonlight, with a few ripple crests. Never moves. */
+function dryBeach(c) {
+  for (var y = WET - 2; y < 500; y++)
+    for (var x = 0; x < W; x++) {
+      if (y < wetLine(x)) continue
+      var k = "s"
+      if (y > WET + 4 && (y + Math.round(3 * Math.sin(x / 41))) % 6 === 0 && fbm1(86 + y, x / 40) > 0.6) k = "a" // ripple crests
+      c.px(x, y, k)
+    }
 }
 
 /**
@@ -438,101 +360,131 @@ function trunkAt(t) {
           u * u * u * P[0][1] + 3 * u * u * t * P[1][1] + 3 * u * t * t * P[2][1] + t * t * t * P[3][1]]
 }
 
-// Fronds: start angle (degrees, 0 = right, -90 = up), length, gust phase.
-var FRONDS = [[-160, 104, 0.0], [-128, 112, 0.05], [-95, 96, 0.1], [-62, 100, 0.15], [-28, 90, 0.2],
-              [8, 80, 0.25], [150, 92, 0.3], [118, 78, 0.35], [-185, 88, 0.4], [62, 64, 0.45]]
+// Fronds: start angle (degrees, 0 = right, -90 = up), length, gust phase, in front of the crown?
+var FRONDS = [[-95, 96, 0.1, 0], [-62, 100, 0.15, 0], [-28, 90, 0.2, 0], [8, 80, 0.25, 0], [62, 64, 0.45, 0],
+              [-160, 104, 0.0, 1], [-128, 112, 0.05, 1], [150, 92, 0.3, 1], [118, 78, 0.35, 1], [-185, 88, 0.4, 1]]
 
 /**
- * The palm: a curving, leaning trunk (ringed, lit on the moon side) and fronds swept downwind.
- * Each frond's rib starts at its own angle and turns toward the wind (left and a little down)
- * along its length, further in a gust; leaflets hang off both sides, trailing with the rib.
- * Drawn into a mask first so the lit edge can follow the silhouette.
+ * The trunk (with the crown's bunched frond bases): ringed, lit on the moon side. Static, so it is
+ * a mask built once and stamped over the fronds every frame.
  */
-function palm(c, m) {
-  var mask = new Uint8Array(W * H) // 1 frond, 2 trunk, 3 trunk ring
+var TRUNK = (function () {
+  var mask = new Uint8Array(W * H) // 2 trunk, 3 ring
   function put(x, y, v) { x = Math.round(x); y = Math.round(y); if (x >= 0 && x < W && y >= 0 && y < H && mask[y * W + x] < v) mask[y * W + x] = v }
-  // trunk
   for (var s = 0; s <= 400; s++) {
     var t = s / 400, p = trunkAt(t), wd = 6 - 2.5 * t
     var q = trunkAt(Math.min(1, t + 0.01)), dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1
-    var nx = -dy / l, ny = dx / l
-    var ring = (s % 13) < 2
+    var nx = -dy / l, ny = dx / l, ring = (s % 13) < 2
     for (var w = -wd; w <= wd; w += 0.5) put(p[0] + nx * w, p[1] + ny * w, ring && Math.abs(w) < wd - 0.5 ? 3 : 2)
   }
-  // crown: frond bases bunched at the top of the trunk
   for (var dy = -5; dy <= 4; dy++) for (var dx = -6; dx <= 6; dx++) if (dx * dx / 36 + dy * dy / 25 <= 1) put(PALM_TOP[0] + dx, PALM_TOP[1] + dy, 2)
-  // fronds
+  return mask
+})()
+function trunk(c) {
+  function at(x, y) { return x >= 0 && x < W && y >= 0 && y < H ? TRUNK[y * W + x] : 0 }
+  for (var y = 0; y < H; y++)
+    for (var x = 0; x < W; x++) {
+      var v = TRUNK[y * W + x]
+      if (!v) continue
+      var lit = !at(x + 1, y) || !at(x + 1, y - 1) && !at(x, y - 1) // edge facing the moon (upper right)
+      var k = v === 3 ? "B" : lit ? "b" : !at(x - 1, y) ? "B" : "R"
+      if (v === 2 && !lit && at(x + 1, y) === 2 && !at(x + 2, y)) k = "r" // a step before the lit edge
+      c.px(x, y, k)
+    }
+}
+
+/**
+ * Fronds swept downwind. Each rib starts at its own angle and turns toward the wind (left and a
+ * little down) along its length, further in a gust; leaflets hang off both sides, trailing with the
+ * rib. Depth: the fronds reaching up and back over the crown are behind it, darker (B body, J lit
+ * edge); the long ones sweeping out front are lighter (J body, j lit edge, z top edge in moonlight)
+ * and overlap them. Drawn into a mask first so the lit edges follow the silhouette.
+ */
+var FB = { x0: 0, x1: 220, y0: 110, y1: 350 } // the fronds' box (their whole reach, in any gust)
+function fronds(c, m) {
+  var w = FB.x1 - FB.x0, mask = new Uint8Array(w * (FB.y1 - FB.y0)) // 1 back frond, 2 front frond
+  function put(x, y, v) {
+    x = Math.round(x); y = Math.round(y)
+    if (x >= FB.x0 && x < FB.x1 && y >= FB.y0 && y < FB.y1 && mask[(y - FB.y0) * w + x - FB.x0] < v) mask[(y - FB.y0) * w + x - FB.x0] = v
+  }
   var WD = Math.PI * 1.06 // wind direction: left and slightly down
   FRONDS.forEach(function (f, fi) {
-    var g = gust(m, f[2]), a0 = f[0] * Math.PI / 180, x = PALM_TOP[0], y = PALM_TOP[1], L = f[1]
-    // take the short way round toward the wind direction
-    var da = WD - a0
+    var g = gust(m, f[2]), a0 = f[0] * Math.PI / 180, x = PALM_TOP[0], y = PALM_TOP[1], L = f[1], v = f[3] ? 2 : 1
+    var da = WD - a0 // take the short way round toward the wind direction
     while (da > Math.PI) da -= TAU
     while (da < -Math.PI) da += TAU
     for (var i = 0; i < L; i++) {
       var t = i / L, a = a0 + da * Math.min(1, Math.pow(t, 0.75) * (0.75 + 0.35 * g))
       x += Math.cos(a); y += Math.sin(a) + 0.15 * t // a little droop
-      put(x, y, 1); put(x, y + 1, 1)
+      put(x, y, v); put(x, y + 1, v)
       if (i < 5) continue
-      // leaflets both sides, trailing back along the rib (swept downwind) and hanging a little
       var len = Math.round((1 - t * 0.7) * 16 * (0.85 + 0.3 * hash2(120, fi, i)))
       ;[-1, 1].forEach(function (sd) {
         var la = a + sd * 0.45
         for (var k = 1; k <= len; k++) {
           var kk = k / len
           var lx = x + Math.cos(la) * k + WIND * kk * kk * 3 * (0.6 + g), ly = y + Math.sin(la) * k + kk * kk * (sd > 0 ? 5 : 2)
-          put(lx, ly, 1); if (k < len * 0.6) put(lx, ly + 1, 1)
+          put(lx, ly, v); if (k < len * 0.6) put(lx, ly + 1, v)
         }
       })
     }
   })
-  function at(x, y) { return x >= 0 && x < W && y >= 0 && y < H ? mask[y * W + x] : 0 }
-  for (var y = 0; y < H; y++)
-    for (var x = 0; x < W; x++) {
-      var v = mask[y * W + x]
-      if (!v) continue
-      // edge facing the moon (upper right); the trunk only looks at itself, so swaying fronds
-      // never change its shading
-      var A = v === 1 ? at : function (x, y) { return at(x, y) >= 2 }
-      var lit = !A(x + 1, y) || !A(x + 1, y - 1) && !A(x, y - 1)
-      var k
-      // fronds: the top edge facing the moon in z (moonlit green, beach_night palette), the right edge in j
-      if (v === 1) k = !at(x, y - 1) && !at(x + 1, y - 1) ? "z" : lit ? "j" : "J"
-      else k = v === 3 ? "B" : lit ? "b" : !A(x - 1, y) ? "B" : "R"
-      if (v === 2 && !lit && at(x + 1, y) === 2 && !A(x + 2, y)) k = "r" // a step before the lit edge
-      c.px(x, y, k)
+  // an edge faces the moon (upper right) where the next pixel that way isn't this layer or a nearer one
+  function same(x, y, v) { return x >= FB.x0 && x < FB.x1 && y >= FB.y0 && y < FB.y1 && mask[(y - FB.y0) * w + x - FB.x0] >= v }
+  for (var y = FB.y0; y < FB.y1; y++)
+    for (var x = FB.x0; x < FB.x1; x++) {
+      var v = mask[(y - FB.y0) * w + x - FB.x0]
+      if (!v || TRUNK[y * W + x]) continue // the trunk is stamped over
+      var top = !same(x, y - 1, v) && !same(x + 1, y - 1, v), lit = !same(x + 1, y, v) || top
+      c.px(x, y, v === 2 ? (top ? "z" : lit ? "j" : "J") : (lit ? "J" : "B"))
     }
+}
+
+/** The part that must never move in the loop (reel.sh checks it): moon disk, trunk, dune face. */
+function staticMask(c) {
+  for (var y = 0; y < H; y++)
+    for (var x = 0; x < W; x++)
+      if (TRUNK[y * W + x] || Math.hypot(x - MOON.x, y - MOON.y) <= MOON.r || y >= 526) c.px(x, y, "B")
 }
 
 // ---------------------------------------------------------------- scene
 
-/** Everything below the sky and over it, at rest (STILL) or for one loop frame (motion(c)). */
+/**
+ * Static layers, built once and stamped: the sky without its stars, the sea's water, the dry sand
+ * and the dune behind everything; the trunk in front of the fronds.
+ */
+palette("beach_night")
+scene("_bn_back", { w: W, h: H, bg: "U" },
+  ...skyLayer("night", Object.assign({}, SKY, { layer: "back" })),
+  seaFill,
+  dryBeach,
+  dune,
+)
+sprite("_bn_trunk", { w: W, h: H }, trunk)
+sprite("_beach_night_loop_static", { w: W, h: H }, staticMask)
+
+/** Everything that moves, at rest (STILL) or for one loop frame (motion(c)), over the stamped back. */
 function beachItems(animate) {
   function st(c) { return animate ? motion(c) : STILL }
   return [
+    stamp("_bn_back", 0, 0),
+    ...skyLayer("night", Object.assign({}, SKY, { layer: "stars" }, animate ? { motion: { twinkle: { n: 8, maxY: 190 } } } : {})),
     function (c) { clouds(c, st(c)) },
-    function (c) { sea(c, st(c)) },
+    function (c) { seaRows(c, st(c)) },
     function (c) { var m = st(c); lace(c, m, BREAK[0].y + 6, BREAK[1].y - BREAK[1].h - 2, 130, m.on ? Math.round(WIND * 16 * Math.sin(TAU * m.p)) : 0) },
     function (c) { moonPath(c, st(c)) },
     function (c) { var m = st(c); beach(c, m, washReach(m)) },
-    function (c) { waves(c, st(c)) },
-    dune,
+    ...breakers(breakerOpts(animate)),
     function (c) { grass(c, st(c)) },
     function (c) { blownSand(c, st(c)) },
-    function (c) { palm(c, st(c)) },
+    function (c) { fronds(c, st(c)) },
+    stamp("_bn_trunk", 0, 0),
   ]
 }
 
-palette("beach_night")
-scene("beach_night", { w: W, h: H, bg: "U" },
-  ...skyLayer("night", SKY),
-  ...beachItems(false),
-)
+scene("beach_night", { w: W, h: H, bg: "U" }, ...beachItems(false))
 // Seamless loop: 48 frames at 12 fps (4 s). Main motion: each spot breaks one wave per cycle and
 // the near one's foam washes up the sand and drains back. The moon path shimmers, clouds stream
 // and tear, fronds and grass bend in gusts (each at its own phase), sand blows off the lip, a few
-// stars twinkle. Moon, palm trunk and dune shapes stay still.
-anim("beach_night_loop", { w: W, h: H, frames: 48, fps: 12 },
-  ...skyLayer("night", Object.assign({}, SKY, { motion: { twinkle: { n: 8, maxY: 190 } } })),
-  ...beachItems(true),
-)
+// stars twinkle. Moon, palm trunk and dune shapes stay still (reel.sh checks _beach_night_loop_static).
+anim("beach_night_loop", { w: W, h: H, frames: 48, fps: 12 }, ...beachItems(true))

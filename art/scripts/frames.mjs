@@ -5,7 +5,10 @@
 //
 // Frames come from pxl's own build (Project.frames), the same pixels as the strip PNG / GIF it
 // writes. Reading them here avoids GIF disposal quirks, and animated scenes only get a GIF.
-// Exit codes: 0 ok, 2 usage/build error, 3 palette check failed, 4 length not whole cycles.
+// Static check: if the study defines a part `_<asset>_static` (same size), every opaque pixel of it
+// marks a pixel that must be identical in every frame (moon, trunk, dunes...); any change fails.
+// Exit codes: 0 ok, 2 usage/build error, 3 palette check failed, 4 length not whole cycles,
+// 5 static check failed.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -73,6 +76,34 @@ if (badCount) {
 const used = new Set();
 for (const f of frames) for (const c of f.img.data) used.add(c >>> 0);
 console.log(`palette check ok: ${frames.length} frame(s), ${used.size}/${allowed.size} palette colours used`);
+
+// ---------------------------------------------------------------- static check
+const maskName = `_${asset}_static`;
+if (frames.length > 1 && p.assets.get(maskName)) {
+  const mask = p.image(maskName);
+  if (mask.w !== w || mask.h !== h) {
+    console.error(`error: ${maskName} is ${mask.w}×${mask.h}, '${asset}' is ${w}×${h}`);
+    process.exit(2);
+  }
+  const f0 = frames[0].img.data;
+  let guarded = 0, moved = 0, firstAt = null;
+  for (let i = 0; i < mask.data.length; i++) {
+    if ((mask.data[i] & 0xff) === 0) continue; // transparent: free to move
+    guarded++;
+    for (let fi = 1; fi < frames.length; fi++)
+      if (frames[fi].img.data[i] !== f0[i]) {
+        moved++;
+        firstAt ??= { x: i % w, y: Math.floor(i / w), frame: fi };
+        break;
+      }
+  }
+  if (moved) {
+    console.error(`static check FAILED: ${moved} of ${guarded} pixels in ${maskName} change ` +
+      `(first at (${firstAt.x}, ${firstAt.y}) in frame ${firstAt.frame})`);
+    process.exit(5);
+  }
+  console.log(`static check ok: ${guarded} pixels in ${maskName} identical in all ${frames.length} frames`);
+}
 
 if (first) writeFileSync(first, encodePng(frames[0].img));
 

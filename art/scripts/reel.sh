@@ -12,10 +12,11 @@
 # --still    export art/out/reels/<study>.png (1080×1920, 3×) instead of an MP4.
 # --asset    export another asset from the study file (e.g. its anim) as reels/<asset>.*
 #
-# Every run checks that every pixel of every frame is a palette colour (fails otherwise).
+# Every run checks that every pixel of every frame is a palette colour (fails otherwise), and, if
+# the study defines a part _<asset>_static, that its opaque pixels never change (fails otherwise).
 set -euo pipefail
 
-usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 study="" seconds=10 still=0 asset=""
 while [[ $# -gt 0 ]]; do

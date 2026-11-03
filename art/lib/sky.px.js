@@ -62,6 +62,9 @@ var SKY_TIMES = {
  * opts.stars (default: none): { maxY } leaves out stars below that y; the others stay put.
  *   { density } (default 1) > 1 adds more stars (every default star stays where it is).
  * opts.glow (default: the time's): { r, ramp } overrides the sun/moon halo; r: 0 draws none.
+ * opts.layer (default: all): "back" leaves out the stars, "stars" returns only them, so a loop can
+ *   stamp the still sky once and draw the (twinkling) stars per frame. The stars keep clear of
+ *   the glow, so the two layers add up to the whole sky.
  * opts.motion (default: none, still image): for anims, read from c.phase so loops wrap:
  *   { clouds: px }  cumulus and stratus sway ±px sideways
  *   { twinkle: { n, maxY } }  n of the medium/bright stars above maxY dim and recover.
@@ -69,7 +72,7 @@ var SKY_TIMES = {
 function skyLayer(time, opts) {
   var T = skySetup(time, opts), light = T.sun || T.moon, mo = (opts && opts.motion) || {}
   function sway(c) { return mo.clouds ? Math.round(mo.clouds * Math.sin(2 * Math.PI * (c.phase || 0))) : 0 }
-  return [
+  var items = [
     grad(0, 0, SKY_W, T.horizon, T.sky, "v", 0.6),
     rect(0, T.horizon, SKY_W, SKY_H - T.horizon, T.sky[T.sky.length - 1]),
     function (c) { if (T.stars) skyStars(c, T.moon, T.starLimit, mo.twinkle, c.phase || 0, opts && opts.stars && opts.stars.maxY, opts && opts.stars && opts.stars.density) },
@@ -83,6 +86,10 @@ function skyLayer(time, opts) {
       T.cumulus.forEach(function (s) { skyCumulus(c, dx ? Object.assign({}, s, { x: s.x + dx }) : s, T.cloud, light) })
     },
   ]
+  // opts.layer: "back" = everything but the stars (stamp it once), "stars" = only the stars (per frame)
+  if (opts && opts.layer === "back") items[2] = function () {}
+  if (opts && opts.layer === "stars") return [items[2]]
+  return items
 }
 
 /** Where the sun (or moon) of skyLayer(time, opts) is: { x, y, r }. Studies light from it. */

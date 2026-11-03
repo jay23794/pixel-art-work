@@ -60,6 +60,14 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   `horizon` (scales the layout), `sun`/`moon: { x, y }`, `clouds: { scale, x, y, top }`,
   `motion: { clouds, twinkle }` for loops, `moon.crescent: { dx, dy }`, `stars: { maxY, density }`,
   `glow: { r, ramp }` (`r: 0` = no halo; `harbour_night` draws its own).
+  `layer: "back" | "stars"` splits the sky so a loop stamps the still part once.
+- `lib/breakers.px.js`: `breakers(opts)` returns breaking waves as scene items (one wave per spot
+  per loop: rise, peel with a thick lip over a dark hollow, billowing whitewater that collapses
+  into lace, spray downwind); `breakerWash(opts, phase)` gives the wash run-up 0..1. Techniques
+  borrowed from pixelfx's wave-crash, kept hard-edged and palette-only. Used by `beach_night`.
+- `.claude/skills/pixelfx` (patch-gg/pixelfx, MIT) is installed as a reference for effect
+  techniques (water, foam, spray, weather). Studies don't depend on it: borrow ideas, not code that
+  paints with alpha or additive light.
 - JS gotcha: a line starting with `[` or `(` continues the previous line. End the previous
   statement with `;` (e.g. `var stones = [];` before `[[...]].forEach(...)`).
 
@@ -83,7 +91,11 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   MP4 is `<study>_loop` if the study has one, else `<study>`, else every anim in it; `--still`
   exports `<study>`.
 - Loops of heavy scenes: build the still parts once as `_part` scenes (one per motion offset
-  if they move) and `stamp` them per frame, so 24 frames don't redraw everything.
+  if they move) and `stamp` them per frame, so 24 frames don't redraw everything
+  (`beach_night`: `_bn_back` behind, `_bn_trunk` in front).
+- Static check: a study can define a part `_<anim>_static` (same size as the anim); every opaque
+  pixel in it must be identical in all frames, or `reel.sh` fails (exit 5). Mark what must never
+  move: moon disk, trunks, dunes. Leave out anything that moving parts pass in front of.
 
 ## Outputs
 - `art/out/` (git-ignored by the root `out/` rule): `scenes/`, `anims/`, `_preview/`,
