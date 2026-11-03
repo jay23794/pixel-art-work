@@ -8,6 +8,9 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 ## Phase 1 scope
 - Landscapes and light only: sky, sun/moon, clouds, mountains, desert, sea, jungle, haze.
 - No objects, vehicles or characters.
+- **Exception: `harbour_night`** (showcase) may have simple far buildings (dark shapes with lit
+  window dots) and an interior window frame + sill (silhouette). Boats appear only as small light
+  dots on the water, never as boat shapes. Still no piers, vehicles or characters.
 
 ## Times of day
 - Every study is **dusk + night only**. Sunrise and day are parked (their palettes and skies exist
@@ -55,7 +58,8 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   (`scene(n, opts, ...skyLayer("dusk"), ...)`); call `palette(time)` first. `skyLight(time, opts)`
   gives the sun/moon `{ x, y, r }` to light a study from. Options (defaults = the approved sky):
   `horizon` (scales the layout), `sun`/`moon: { x, y }`, `clouds: { scale, x, y, top }`,
-  `motion: { clouds, twinkle }` for loops.
+  `motion: { clouds, twinkle }` for loops, `moon.crescent: { dx, dy }`, `stars: { maxY, density }`,
+  `glow: { r, ramp }` (`r: 0` = no halo; `harbour_night` draws its own).
 - JS gotcha: a line starting with `[` or `(` continues the previous line. End the previous
   statement with `;` (e.g. `var stones = [];` before `[[...]].forEach(...)`).
 

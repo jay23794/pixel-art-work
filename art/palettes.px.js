@@ -84,6 +84,19 @@ PALETTES.jungle_night = PALETTES.night.map(function (ramp, r) {
   return r === 1 ? ["#ffe27a", "#d8963a"].concat(ramp.slice(2)) : ramp
 })
 
+// harbour_night: a locked palette for the harbour showcase. Same 32 slots (so skyLayer and the
+// shared code work), its own values: navy and teal everywhere, with the sand slots as the single
+// warm accent ramp for the city lights. Not a swap of the others; only harbour_night uses it.
+PALETTES.harbour_night = [
+  ["#070b1a", "#0d1530", "#152346", "#1f3558", "#2c4a6c"], // sky: deep navy → slate-teal at the horizon
+  ["#3a4f6e", "#6a7f9c", "#a6b6c8", "#d4dde6", "#f2f5f7"], // moon: cool pale
+  ["#0e1a2c", "#16283c", "#20384e", "#2e4c62", "#46677c"], // cloud bank: navy-teal
+  ["#08121c", "#0e1e2a", "#15303a", "#1e434c", "#2c5a60"], // far: hills and water, teal
+  ["#04060c", "#0a0f1c", "#121a2c", "#1c2a40", "#5a7290"], // rock: frame, sill, buildings (t = moonlit edge)
+  ["#5a2e1c", "#a0501e", "#e08a2e", "#f8c25a", "#fff0b8"], // sand slots = the warm lights: ember → gold → cream
+  ["#0a1820", "#13303a"],                                  // foliage slots = water teals
+]
+
 /** Activate a palette: only its 32 keys exist afterwards, with ramps for shade/light/glow. */
 function palette(name) {
   var p = PALETTES[name]
