@@ -51,6 +51,9 @@ var SKY_TIMES = {
  * ground over it.
  * opts.horizon (default 456): scales the whole layout vertically (gradient, sun/moon, clouds,
  * star limit) so a study can put the horizon higher. Sizes don't scale.
+ * opts.clouds (default: as designed): { scale, top } for cumulus. `scale` multiplies their width
+ * and height (around their centre); `top` pushes a cloud down until its highest puff is at or
+ * below that y (e.g. 84 keeps it out of the top safe zone). Stratus is unaffected.
  */
 function skyLayer(time, opts) {
   var T = skySetup(time, opts), light = T.sun || T.moon
@@ -84,9 +87,25 @@ function skySetup(time, opts) {
   return {
     sky: src.sky, cloud: src.cloud, glow: src.glow, stars: src.stars, horizon: horizon,
     sun: src.sun && at(src.sun), moon: src.moon && at(src.moon),
-    cumulus: src.cumulus.map(at), stratus: src.stratus.map(at),
+    cumulus: src.cumulus.map(at).map(function (cu) { return skyCloudFit(cu, opts && opts.clouds) }),
+    stratus: src.stratus.map(at),
     starLimit: Math.round((Math.round(SKY_H * 2 / 3) - 8) * f),
   }
+}
+
+/** Apply opts.clouds to one cumulus: scale around its centre, then keep its top below `top`. */
+function skyCloudFit(cu, o) {
+  if (!o) return cu
+  var p = Object.assign({}, cu), sc = o.scale || 1
+  if (sc !== 1) {
+    var cx = cu.x + cu.w / 2
+    p.w = Math.round(cu.w * sc); p.h = Math.round(cu.h * sc); p.x = Math.round(cx - p.w / 2)
+    p.y = Math.round(cu.y - (cu.h - p.h) / 2)
+  }
+  // Highest a puff can reach above the base: centre (0.4 r + 0.3 h) plus radius, r ≤ 0.72 h × 1.2.
+  var reach = Math.ceil(p.h * (0.3 + 0.72 * 1.2 * 1.4))
+  if (o.top !== undefined && p.y - reach < o.top) p.y = o.top + reach
+  return p
 }
 
 // ---------------------------------------------------------------- sun and moon
