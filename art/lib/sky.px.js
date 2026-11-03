@@ -51,23 +51,32 @@ var SKY_TIMES = {
  * ground over it.
  * opts.horizon (default 456): scales the whole layout vertically (gradient, sun/moon, clouds,
  * star limit) so a study can put the horizon higher. Sizes don't scale.
- * opts.clouds (default: as designed): { scale, top } for cumulus. `scale` multiplies their width
- * and height (around their centre); `top` pushes a cloud down until its highest puff is at or
- * below that y (e.g. 84 keeps it out of the top safe zone). Stratus is unaffected.
+ * opts.clouds (default: as designed): { scale, x, y, top } for cumulus. `scale` multiplies their
+ * width and height (around their centre); `x`, `y` move the group so the first cumulus is centred
+ * on x with its base on y (others keep their offsets); `top` then pushes a cloud down until its
+ * highest puff is at or below that y (e.g. 84 keeps it out of the top safe zone). Stratus is
+ * unaffected.
+ * opts.sun / opts.moon (default: as designed): { x, y } puts the disk there (after horizon
+ * scaling); stars still keep clear of the moon.
+ * opts.motion (default: none, still image): for anims, read from c.phase so loops wrap:
+ *   { clouds: px }  cumulus and stratus sway ±px sideways
+ *   { twinkle: { n, maxY } }  n of the medium/bright stars above maxY dim and recover.
  */
 function skyLayer(time, opts) {
-  var T = skySetup(time, opts), light = T.sun || T.moon
+  var T = skySetup(time, opts), light = T.sun || T.moon, mo = (opts && opts.motion) || {}
+  function sway(c) { return mo.clouds ? Math.round(mo.clouds * Math.sin(2 * Math.PI * (c.phase || 0))) : 0 }
   return [
     grad(0, 0, SKY_W, T.horizon, T.sky, "v", 0.6),
     rect(0, T.horizon, SKY_W, SKY_H - T.horizon, T.sky[T.sky.length - 1]),
-    function (c) { if (T.stars) skyStars(c, T.moon, T.starLimit) },
+    function (c) { if (T.stars) skyStars(c, T.moon, T.starLimit, mo.twinkle, c.phase || 0) },
     function (c) { if (T.sun) skySunDisk(c, T.sun); else skyMoonDisk(c, T.moon) },
     // Crisp stepped halo: bands = ramp, so every ring is a whole ramp step (no dithered fractions).
     glow("onw", { r: T.glow.r, ramp: T.glow.ramp, bands: T.glow.ramp, where: [light.x, light.y, light.r + 1] }),
     function (c) { if (T.sun && T.sun.cut) skySunCuts(c, T.sun) },
     function (c) {
-      T.stratus.forEach(function (s) { skyStratus(c, s, T.cloud, light) })
-      T.cumulus.forEach(function (s) { skyCumulus(c, s, T.cloud, light) })
+      var dx = sway(c)
+      T.stratus.forEach(function (s) { skyStratus(c, dx ? Object.assign({}, s, { x: s.x + dx }) : s, T.cloud, light) })
+      T.cumulus.forEach(function (s) { skyCumulus(c, dx ? Object.assign({}, s, { x: s.x + dx }) : s, T.cloud, light) })
     },
   ]
 }
@@ -86,26 +95,44 @@ function skySetup(time, opts) {
   function at(o) { var p = Object.assign({}, o); p.y = Math.round(o.y * f); return p }
   return {
     sky: src.sky, cloud: src.cloud, glow: src.glow, stars: src.stars, horizon: horizon,
-    sun: src.sun && at(src.sun), moon: src.moon && at(src.moon),
-    cumulus: src.cumulus.map(at).map(function (cu) { return skyCloudFit(cu, opts && opts.clouds) }),
+    sun: src.sun && skyPlace(at(src.sun), opts && opts.sun), moon: src.moon && skyPlace(at(src.moon), opts && opts.moon),
+    cumulus: skyCloudsFit(src.cumulus.map(at), opts && opts.clouds),
     stratus: src.stratus.map(at),
     starLimit: Math.round((Math.round(SKY_H * 2 / 3) - 8) * f),
   }
 }
 
-/** Apply opts.clouds to one cumulus: scale around its centre, then keep its top below `top`. */
-function skyCloudFit(cu, o) {
-  if (!o) return cu
-  var p = Object.assign({}, cu), sc = o.scale || 1
-  if (sc !== 1) {
-    var cx = cu.x + cu.w / 2
-    p.w = Math.round(cu.w * sc); p.h = Math.round(cu.h * sc); p.x = Math.round(cx - p.w / 2)
-    p.y = Math.round(cu.y - (cu.h - p.h) / 2)
+/** Override a disk's position with opts { x, y }. */
+function skyPlace(d, o) {
+  if (!o) return d
+  var p = Object.assign({}, d)
+  if (o.x !== undefined) p.x = o.x
+  if (o.y !== undefined) p.y = o.y
+  return p
+}
+
+/** Apply opts.clouds to the cumulus list: scale each, move the group, keep tops below `top`. */
+function skyCloudsFit(list, o) {
+  if (!o) return list
+  var out = list.map(function (cu) {
+    var p = Object.assign({}, cu), sc = o.scale || 1
+    if (sc !== 1) {
+      var cx = cu.x + cu.w / 2
+      p.w = Math.round(cu.w * sc); p.h = Math.round(cu.h * sc); p.x = Math.round(cx - p.w / 2)
+      p.y = Math.round(cu.y - (cu.h - p.h) / 2)
+    }
+    return p
+  })
+  if (out.length && (o.x !== undefined || o.y !== undefined)) {
+    var dx = o.x !== undefined ? o.x - (out[0].x + out[0].w / 2) : 0, dy = o.y !== undefined ? o.y - out[0].y : 0
+    out.forEach(function (p) { p.x = Math.round(p.x + dx); p.y = Math.round(p.y + dy) })
   }
   // Highest a puff can reach above the base: centre (0.4 r + 0.3 h) plus radius, r ≤ 0.72 h × 1.2.
-  var reach = Math.ceil(p.h * (0.3 + 0.72 * 1.2 * 1.4))
-  if (o.top !== undefined && p.y - reach < o.top) p.y = o.top + reach
-  return p
+  out.forEach(function (p) {
+    var reach = Math.ceil(p.h * (0.3 + 0.72 * 1.2 * 1.4))
+    if (o.top !== undefined && p.y - reach < o.top) p.y = o.top + reach
+  })
+  return out
 }
 
 // ---------------------------------------------------------------- sun and moon
@@ -159,7 +186,8 @@ function skyMoonDisk(c, m) {
  * long cross sparkle. Density falls off from the top; none below `limit` (the lower third at the
  * reference horizon), none in the moon's glow.
  */
-function skyStars(c, moon, limit) {
+function skyStars(c, moon, limit, twinkle, phase) {
+  var tw = 0
   for (var i = 0; i < 900; i++) {
     var x = 4 + Math.floor(hash2(71, i, 0) * (SKY_W - 8))
     var y = 4 + Math.floor(hash2(71, i, 1) * limit)
@@ -167,6 +195,13 @@ function skyStars(c, moon, limit) {
     if (hash2(71, i, 2) > keep * 0.32) continue
     if (Math.hypot(x - moon.x, y - moon.y) < moon.r + 34) continue
     var size = hash2(71, i, 3)
+    // Twinkle: the first n medium/bright stars above maxY dim for part of the loop, each at its
+    // own offset (sin of the loop phase, so frame 23 flows into frame 0).
+    if (twinkle && size >= 0.84 && y < twinkle.maxY && tw < twinkle.n) {
+      var off = hash2(72, i, 0), dim = Math.sin(2 * Math.PI * (phase + off)) > 0.55
+      tw++
+      if (dim) { c.px(x, y, "l"); continue }
+    }
     if (size < 0.84) c.px(x, y, size < 0.5 ? "l" : "m")
     else if (size < 0.96) c.rect(x, y, 2, 2, "n")
     else {

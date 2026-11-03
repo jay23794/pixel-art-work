@@ -1,5 +1,5 @@
-// mountains — a layered range at dusk: mountains_dusk.
-// (mountains_night comes later as a pure palette swap + skyLayer("night"); no redrawing.)
+// mountains — a layered range: mountains_dusk (approved), mountains_night (pure palette swap of
+// the same drawing + skyLayer("night"); no redrawing).
 //
 // Light: the low dusk sun of skyLayer("dusk"), set in a notch between the ranges (x 252).
 // Faces that turn towards the sun's side are lit, faces that turn away are in shadow; each face is
@@ -18,6 +18,13 @@ var W = 360, H = 640
 // top safe zone so nothing competes with the hero peak.
 var SKY = { horizon: 282, clouds: { scale: 0.5, top: 96 } }
 var SUN = skyLight("dusk", SKY)
+// Night: the moon goes upper right, on the dusk sun's side, so the lit faces and the rim read as
+// moonlight; the cumulus moves to the left, away from the hero peak.
+var SKY_OPTS = {
+  dusk: SKY,
+  night: { horizon: 282, clouds: { scale: 0.5, top: 96, x: 64, y: 170 }, moon: { x: 276, y: 124 } },
+}
+
 
 /** Envelope of rounded cones: steep near each peak, flattening out (concave mountain slopes). */
 function cones(peaks) {
@@ -157,6 +164,7 @@ function faces(P, seed, minProm, ribs, small) {
  *   snow?: { line, lit, shade, crease?, rim?, broken? }   snowline y, keys, lit-ridge snow rim,
  *                                 broken lower edge
  *   haze?: [[y, key], ...]        stepped haze bands from y down, edges waving like mist
+ *   hazeShift?                    px the mist edge is shifted sideways (loops)
  *   strata?: [litKey, shadeKey, y0, y1], strataDensity?(x, y) → threshold    hero only
  *   valley?: [y, key]             lit rock below y drops to key (valley shade)
  *   smallRibs?: { n, x0, x1, y0, y1 }   second-level ribs in that box (shadow wedges on lit rock)
@@ -220,7 +228,7 @@ function drawRange(c, o) {
 
       // Haze bands towards the foot of the range (mist edge waves slowly).
       if (o.haze) {
-        var wave = Math.round(3 * Math.sin(x / 23 + o.seed))
+        var wave = Math.round(3 * Math.sin((x - (o.hazeShift || 0)) / 23 + o.seed))
         for (var i = 0; i < o.haze.length; i++) if (y >= o.haze[i][0] + wave) k = o.haze[i][1]
       }
       c.px(x, y, k)
@@ -349,80 +357,98 @@ function slab(c, pts, crack) {
   }
 }
 
-palette("dusk")
-scene("mountains_dusk", { w: W, h: H, bg: "U" },
-  ...skyLayer("dusk", SKY),
-  function (c) {
-    // R1: farthest, low and gentle. Two tones, no outline, almost the haze colour.
-    drawRange(c, { P: R1, seed: 11, prom: 6, lit: "z", shade: "h" })
-    // R2: lit far-light, shadow far-base; one step of haze at its foot.
-    drawRange(c, { P: R2, seed: 21, prom: 10, ribs: 1, lit: "h", shade: "f", haze: [[258, "h"], [272, "z"]] })
-    // R3: the range behind the hero, with snow.
-    drawRange(c, { P: R3, seed: 31, prom: 10, ribs: 2, lit: "f", shade: "F",
-      snow: { line: 270, lit: "z", shade: "h" }, haze: [[282, "f"], [296, "h"], [310, "z"]] })
-    // HERO: full rock ramp, warm lit faces, purple shadows, snow, strata, cracks, outline.
-    drawRange(c, { P: HERO, seed: 41, prom: 12, ribs: 5, lit: "b", shade: "R", rim: "t", outline: "B", gully: "B",
-      snow: { line: 276, lit: "k", shade: "h", crease: "f", outcrops: true, rim: "w", broken: true },
-      strata: ["r", "B", 290, 440], strataDensity: heroStrataDensity, cracks: heroCracks, detail: heroDetail,
-      smallRibs: { n: 6, x0: 120, x1: 330, y0: 382, y1: 462 } })
-  },
-  // Foreground lip: darkest and warmest. Sand-ramp deep shadow body, lit tops facing the sun,
-  // boulders breaking the lip line, stones growing towards the viewer.
-  function (c) {
-    for (var x = 0; x < W; x++) {
-      var top = FORE[x], sl = slopeAt(FORE, x, 3)
-      var facing = SUN.x > x ? sl < -0.05 : sl > 0.05
-      for (var y = top; y < H; y++) c.px(x, y, y === top && facing ? "S" : "A")
-    }
-    // Grit: sparse lit grains on the scree (granular ground), denser towards the viewer.
-    for (var i = 0; i < 420; i++) {
-      var gx = Math.floor(hash2(93, i, 0) * W), gy = 496 + Math.floor(Math.sqrt(hash2(93, i, 1)) * 144)
-      if (c.is(gx, gy, "A") && c.is(gx + 1, gy, "A")) c.rect(gx, gy, 2, 1, hash2(93, i, 2) > 0.3 ? "S" : "B")
-    }
-    // Scree runs: two trails of stones from the bottom corners converging on the lip below the
-    // hero, shrinking with distance; they lead the eye up to the peak.
-    var stones = [];
-    [[[28, 636], [150, 500]], [[338, 636], [214, 500]]].forEach(function (run, ri) {
-      // Clumps along the run, each a few stones of mixed size, spread wider near the viewer.
-      for (var i = 0; i < 9; i++) {
-        var t = Math.pow(i / 8, 0.8) + (hash2(94, ri, i) - 0.5) * 0.06
-        var bx = run[0][0] + (run[1][0] - run[0][0]) * t, by = run[0][1] + (run[1][1] - run[0][1]) * t
-        var m = 1 + Math.floor(hash2(94, ri, i + 10) * 3), spread = 18 - t * 12
-        for (var j = 0; j < m; j++) {
-          var sz = (8 - t * 5) * (0.5 + hash2(94, ri * 50 + i, j))
-          stones.push({ x: bx + (hash2(95, ri * 50 + i, j) - 0.5) * spread, y: by + (hash2(96, ri * 50 + i, j) - 0.5) * spread * 0.4,
-            rx: sz, ry: sz * 0.55 })
-        }
+/** Everything below the sky (ranges, haze, foreground). `shift` moves the mist edges sideways. */
+function landItems(shift) {
+  return [
+    function (c) {
+      // R1: farthest, low and gentle. Two tones, no outline, almost the haze colour.
+      drawRange(c, { P: R1, seed: 11, prom: 6, lit: "z", shade: "h" })
+      // R2: lit far-light, shadow far-base; one step of haze at its foot.
+      drawRange(c, { P: R2, seed: 21, prom: 10, ribs: 1, lit: "h", shade: "f", haze: [[258, "h"], [272, "z"]], hazeShift: shift })
+      // R3: the range behind the hero, with snow.
+      drawRange(c, { P: R3, seed: 31, prom: 10, ribs: 2, lit: "f", shade: "F",
+        snow: { line: 270, lit: "z", shade: "h" }, haze: [[282, "f"], [296, "h"], [310, "z"]], hazeShift: shift })
+      // HERO: full rock ramp, warm lit faces, purple shadows, snow, strata, cracks, outline.
+      drawRange(c, { P: HERO, seed: 41, prom: 12, ribs: 5, lit: "b", shade: "R", rim: "t", outline: "B", gully: "B",
+        snow: { line: 276, lit: "k", shade: "h", crease: "f", outcrops: true, rim: "w", broken: true },
+        strata: ["r", "B", 290, 440], strataDensity: heroStrataDensity, cracks: heroCracks, detail: heroDetail,
+        smallRibs: { n: 6, x0: 120, x1: 330, y0: 382, y1: 462 } })
+    },
+    // Foreground lip: darkest and warmest. Sand-ramp deep shadow body, lit tops facing the sun,
+    // boulders breaking the lip line, stones growing towards the viewer.
+    function (c) {
+      for (var x = 0; x < W; x++) {
+        var top = FORE[x], sl = slopeAt(FORE, x, 3)
+        var facing = SUN.x > x ? sl < -0.05 : sl > 0.05
+        for (var y = top; y < H; y++) c.px(x, y, y === top && facing ? "S" : "A")
       }
-    })
-    for (var i = 0; i < 16; i++) { // a few loose stones elsewhere
-      var y = Math.round(500 + Math.sqrt(hash2(92, i, 1)) * 130), g = (y - 480) / 160, v = hash2(92, i, 2)
-      stones.push({ x: hash2(92, i, 0) * W, y: y, rx: 2 + g * 5 + v * 4, ry: 1.5 + g * 2 + v * 2 })
-    }
-    stones.sort(function (a, b) { return a.y - b.y })
-    stones.forEach(function (st) {
-      var L = SUN.x > st.x ? 0.75 : -0.75
-      for (var y = Math.floor(st.y - st.ry); y <= st.y + st.ry; y++)
-        for (var x = Math.floor(st.x - st.rx); x <= st.x + st.rx; x++) {
-          var nx = (x + 0.5 - st.x) / st.rx, ny = (y + 0.5 - st.y) / st.ry
-          if (Math.abs(nx) * 0.55 + Math.abs(ny) * 0.45 + Math.max(Math.abs(nx), Math.abs(ny)) * 0.5 > 1) continue
-          var k = ny > 0.6 ? "B" : ny < -0.35 + nx * L * 0.3 ? "s" : nx * L > 0 ? "S" : "A"
-          c.px(x, y, k)
-        }
-    })
-    // Slabs in the centre, long axes pointing up the slope towards the hero.
-    // Broken plates: blunt, asymmetric, a short crack in from one edge.
-    slab(c, [114, 534, 122, 518, 146, 512, 160, 516, 152, 530, 132, 538], [146, 513, 140, 524])
-    slab(c, [210, 520, 216, 508, 236, 506, 240, 516, 226, 524])
-    slab(c, [146, 578, 158, 560, 186, 552, 210, 558, 204, 570, 178, 584], [204, 562, 192, 570]);
-    // Boulders on the lip: clumped, biggest towards the frame edges.
-    [[12, 3], [72, 2], [270, 2], [346, 3]].forEach(function (g, gi) {
-      for (var i = 0; i < g[1]; i++) {
-        var bx = Math.round(g[0] + (i - (g[1] - 1) / 2) * 20 + (hash2(91, gi, i) - 0.5) * 10)
-        var edge = Math.abs(bx - W / 2) / (W / 2), big = (0.5 + edge) * (0.7 + 0.6 * hash2(91, gi, i + 9))
-        var cx = Math.max(0, Math.min(W - 1, bx))
-        boulder(c, bx, FORE[cx] + 6 + i * 3, Math.round(16 + big * 18), Math.round(10 + big * 12), gi * 10 + i)
+      // Grit: sparse lit grains on the scree (granular ground), denser towards the viewer.
+      for (var i = 0; i < 420; i++) {
+        var gx = Math.floor(hash2(93, i, 0) * W), gy = 496 + Math.floor(Math.sqrt(hash2(93, i, 1)) * 144)
+        if (c.is(gx, gy, "A") && c.is(gx + 1, gy, "A")) c.rect(gx, gy, 2, 1, hash2(93, i, 2) > 0.3 ? "S" : "B")
       }
-    })
-  },
-)
+      // Scree runs: two trails of stones from the bottom corners converging on the lip below the
+      // hero, shrinking with distance; they lead the eye up to the peak.
+      var stones = [];
+      [[[28, 636], [150, 500]], [[338, 636], [214, 500]]].forEach(function (run, ri) {
+        // Clumps along the run, each a few stones of mixed size, spread wider near the viewer.
+        for (var i = 0; i < 9; i++) {
+          var t = Math.pow(i / 8, 0.8) + (hash2(94, ri, i) - 0.5) * 0.06
+          var bx = run[0][0] + (run[1][0] - run[0][0]) * t, by = run[0][1] + (run[1][1] - run[0][1]) * t
+          var m = 1 + Math.floor(hash2(94, ri, i + 10) * 3), spread = 18 - t * 12
+          for (var j = 0; j < m; j++) {
+            var sz = (8 - t * 5) * (0.5 + hash2(94, ri * 50 + i, j))
+            stones.push({ x: bx + (hash2(95, ri * 50 + i, j) - 0.5) * spread, y: by + (hash2(96, ri * 50 + i, j) - 0.5) * spread * 0.4,
+              rx: sz, ry: sz * 0.55 })
+          }
+        }
+      })
+      for (var i = 0; i < 16; i++) { // a few loose stones elsewhere
+        var y = Math.round(500 + Math.sqrt(hash2(92, i, 1)) * 130), g = (y - 480) / 160, v = hash2(92, i, 2)
+        stones.push({ x: hash2(92, i, 0) * W, y: y, rx: 2 + g * 5 + v * 4, ry: 1.5 + g * 2 + v * 2 })
+      }
+      stones.sort(function (a, b) { return a.y - b.y })
+      stones.forEach(function (st) {
+        var L = SUN.x > st.x ? 0.75 : -0.75
+        for (var y = Math.floor(st.y - st.ry); y <= st.y + st.ry; y++)
+          for (var x = Math.floor(st.x - st.rx); x <= st.x + st.rx; x++) {
+            var nx = (x + 0.5 - st.x) / st.rx, ny = (y + 0.5 - st.y) / st.ry
+            if (Math.abs(nx) * 0.55 + Math.abs(ny) * 0.45 + Math.max(Math.abs(nx), Math.abs(ny)) * 0.5 > 1) continue
+            var k = ny > 0.6 ? "B" : ny < -0.35 + nx * L * 0.3 ? "s" : nx * L > 0 ? "S" : "A"
+            c.px(x, y, k)
+          }
+      })
+      // Slabs in the centre, long axes pointing up the slope towards the hero.
+      // Broken plates: blunt, asymmetric, a short crack in from one edge.
+      slab(c, [114, 534, 122, 518, 146, 512, 160, 516, 152, 530, 132, 538], [146, 513, 140, 524])
+      slab(c, [210, 520, 216, 508, 236, 506, 240, 516, 226, 524])
+      slab(c, [146, 578, 158, 560, 186, 552, 210, 558, 204, 570, 178, 584], [204, 562, 192, 570]);
+      // Boulders on the lip: clumped, biggest towards the frame edges.
+      [[12, 3], [72, 2], [270, 2], [346, 3]].forEach(function (g, gi) {
+        for (var i = 0; i < g[1]; i++) {
+          var bx = Math.round(g[0] + (i - (g[1] - 1) / 2) * 20 + (hash2(91, gi, i) - 0.5) * 10)
+          var edge = Math.abs(bx - W / 2) / (W / 2), big = (0.5 + edge) * (0.7 + 0.6 * hash2(91, gi, i + 9))
+          var cx = Math.max(0, Math.min(W - 1, bx))
+          boulder(c, bx, FORE[cx] + 6 + i * 3, Math.round(16 + big * 18), Math.round(10 + big * 12), gi * 10 + i)
+        }
+      })
+    },
+  ]
+}
+
+/**
+ * The study for one time of day. Everything below the sky is drawn identically for every time:
+ * the palette swap alone recolours it (night = pure palette swap, no redrawing). The faces stay
+ * lit from the dusk sun's position (SUN); at night the moon sits on that side.
+ * The land is built as a part (_land_<time>_<shift>) and stamped; stills use offset 0.
+ */
+function mountainScene(time) {
+  palette(time)
+  scene("_land_" + time + "_0", { w: W, h: H }, ...landItems(0))
+  scene("mountains_" + time, { w: W, h: H, bg: "U" },
+    ...skyLayer(time, SKY_OPTS[time]),
+    stamp("_land_" + time + "_0", 0, 0))
+}
+
+mountainScene("dusk")
+mountainScene("night")
