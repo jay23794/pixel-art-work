@@ -24,7 +24,8 @@ var SKY_OPTS = {
   dusk: SKY,
   night: { horizon: 282, clouds: { scale: 0.5, top: 96, x: 64, y: 170 }, moon: { x: 276, y: 124 } },
 }
-
+// Loop motion (anims only): dusk clouds sway 1 px; night stars twinkle above the ranges.
+var SKY_MOTION = { dusk: { clouds: 1 }, night: { twinkle: { n: 7, maxY: 170 } } }
 
 /** Envelope of rounded cones: steep near each peak, flattening out (concave mountain slopes). */
 function cones(peaks) {
@@ -436,18 +437,41 @@ function landItems(shift) {
   ]
 }
 
+/** Haze drift for loop phase p: -2..2 px, back and forth (sin, so frame 23 flows into 0). */
+function hazeShift(p) { return Math.round(1.5 * Math.sin(2 * Math.PI * p)) }
+
+/**
+ * Snow shimmer (dusk loop): a few lit snow pixels on the hero cap flash to the bright rim
+ * colour, each at its own point in the cycle.
+ */
+function snowShimmer(c) {
+  var n = 0
+  for (var y = 214; y < 272 && n < 9; y++)
+    for (var x = 146; x < 214 && n < 9; x++) {
+      if (!c.is(x, y, "k") || !c.is(x + 1, y, "k") || hash2(81, x, y) > 0.012) continue
+      n++
+      if (Math.sin(2 * Math.PI * ((c.phase || 0) + hash2(82, x, y))) > 0.75) c.px(x, y, "w")
+    }
+}
+
 /**
  * The study for one time of day. Everything below the sky is drawn identically for every time:
  * the palette swap alone recolours it (night = pure palette swap, no redrawing). The faces stay
  * lit from the dusk sun's position (SUN); at night the moon sits on that side.
- * The land is built as a part (_land_<time>_<shift>) and stamped; stills use offset 0.
+ * The land is built once per haze offset as a part (_land_<time>_<shift>) and stamped, so the
+ * loops don't redraw the mountains every frame. Stills stamp offset 0.
  */
 function mountainScene(time) {
   palette(time)
-  scene("_land_" + time + "_0", { w: W, h: H }, ...landItems(0))
+  for (var sh = -2; sh <= 2; sh++) scene("_land_" + time + "_" + sh, { w: W, h: H }, ...landItems(sh))
   scene("mountains_" + time, { w: W, h: H, bg: "U" },
     ...skyLayer(time, SKY_OPTS[time]),
     stamp("_land_" + time + "_0", 0, 0))
+  // Seamless loop: 24 frames at 12 fps (2 s). Only haze, clouds, snow glints and stars move.
+  anim("mountains_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    ...skyLayer(time, Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+    function (c) { c.stamp("_land_" + time + "_" + hazeShift(c.phase), 0, 0) },
+    function (c) { if (time === "dusk") snowShimmer(c) })
 }
 
 mountainScene("dusk")

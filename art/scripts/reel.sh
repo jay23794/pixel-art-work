@@ -3,7 +3,8 @@
 #
 #   art/scripts/reel.sh <study> [seconds=10] [--still] [--asset NAME]
 #
-# <study>    art/studies/<study>.px.js; the exported asset defaults to the same name.
+# <study>    art/studies/<study>.px.js; the exported asset defaults to the same name. If the
+#            study has no asset of that name, every anim in it is exported (reels/<anim>.mp4).
 # seconds    reel length; must be a whole number of animation cycles (2 s for 24 f @ 12 fps).
 # --still    export art/out/reels/<study>.png (1080×1920, 3×) instead of an MP4.
 # --asset    export another asset from the study file (e.g. its anim) as reels/<asset>.*
@@ -11,7 +12,7 @@
 # Every run checks that every pixel of every frame is a palette colour (fails otherwise).
 set -euo pipefail
 
-usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 study="" seconds=10 still=0 asset=""
 while [[ $# -gt 0 ]]; do
@@ -26,7 +27,6 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n "$study" ]] || usage
 [[ "$seconds" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "error: seconds must be a number, got '$seconds'" >&2; exit 2; }
-asset="${asset:-$study}"
 
 ART="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$ART/.." && pwd)"
@@ -37,27 +37,44 @@ REELS="$OUT/reels"
 [[ -f "$FILE" ]] || { echo "error: no study at $FILE" >&2; exit 2; }
 command -v ffmpeg >/dev/null || { echo "error: ffmpeg not found" >&2; exit 2; }
 
-# 1. Build (writes scenes/, anims/ and _preview/ under art/out).
-node "$PXL" build "$FILE" --out "$OUT" --only "$asset"
-
-# 2. Palette check + frames.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$REELS"
 
-if [[ $still == 1 ]]; then
-  node "$ART/scripts/frames.mjs" "$FILE" "$asset" --first "$TMP/still.png"
-  ffmpeg -v error -y -i "$TMP/still.png" -vf "format=rgb24,scale=1080:1920:flags=neighbor" -pix_fmt rgb24 "$REELS/$asset.png"
-  echo "-> $REELS/$asset.png"
-  exit 0
+export_asset() {
+  local asset="$1"
+  # 1. Build (writes scenes/, anims/ and _preview/ under art/out).
+  node "$PXL" build "$FILE" --out "$OUT" --only "$asset"
+
+  # 2. Palette check + frames.
+  if [[ $still == 1 ]]; then
+    node "$ART/scripts/frames.mjs" "$FILE" "$asset" --first "$TMP/still.png"
+    ffmpeg -v error -y -i "$TMP/still.png" -vf "format=rgb24,scale=1080:1920:flags=neighbor" -pix_fmt rgb24 "$REELS/$asset.png"
+    echo "-> $REELS/$asset.png"
+    return
+  fi
+  rm -rf "$TMP/seq"
+  node "$ART/scripts/frames.mjs" "$FILE" "$asset" --seconds "$seconds" --dir "$TMP/seq"
+
+  # 3. Encode. pxl writes palette-indexed PNGs; converting to rgb24 before scaling keeps the
+  #    colours exact (ffmpeg's direct pal8 scaling is off by ±1 per channel).
+  ffmpeg -v error -y -framerate 24 -i "$TMP/seq/%05d.png" \
+    -vf "format=rgb24,scale=1080:1920:flags=neighbor" \
+    -c:v libx264 -pix_fmt yuv420p -crf 20 -r 24 -movflags +faststart \
+    "$REELS/$asset.mp4"
+  echo "-> $REELS/$asset.mp4"
+}
+
+if [[ -n "$asset" ]]; then
+  export_asset "$asset"
+else
+  # Assets in the study: "<kind> <name> <file:line>" per line.
+  list="$(node "$PXL" list "$FILE")"
+  if awk -v n="$study" '$2 == n { found = 1 } END { exit !found }' <<<"$list"; then
+    export_asset "$study"
+  else
+    anims="$(awk '$1 == "anim" && $2 !~ /^_/ { print $2 }' <<<"$list")"
+    [[ -n "$anims" ]] || { echo "error: no asset '$study' and no anims in $FILE" >&2; exit 2; }
+    for a in $anims; do export_asset "$a"; done
+  fi
 fi
-
-node "$ART/scripts/frames.mjs" "$FILE" "$asset" --seconds "$seconds" --dir "$TMP/seq"
-
-# 3. Encode. pxl writes palette-indexed PNGs; converting to rgb24 before scaling keeps the
-#    colours exact (ffmpeg's direct pal8 scaling is off by ±1 per channel).
-ffmpeg -v error -y -framerate 24 -i "$TMP/seq/%05d.png" \
-  -vf "format=rgb24,scale=1080:1920:flags=neighbor" \
-  -c:v libx264 -pix_fmt yuv420p -crf 20 -r 24 -movflags +faststart \
-  "$REELS/$asset.mp4"
-echo "-> $REELS/$asset.mp4"
