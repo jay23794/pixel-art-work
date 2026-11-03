@@ -18,6 +18,12 @@ var HORIZON = 286
 var SKY = { horizon: HORIZON, clouds: { scale: 0.6, top: 96, x: 90, y: 160, stratus: { hide: [0, 2] } } }
 var SUN = skyLight("dusk", SKY)
 var LIGHT_X = SUN.x // the reflection column's axis (sun at dusk, moon at night: same x)
+// Night: the moon low (y 216) on the sun's axis, so it throws the same column, in silver; the
+// cumulus to the upper left, away from the column.
+var SKY_OPTS = {
+  dusk: SKY,
+  night: { horizon: HORIZON, moon: { x: LIGHT_X, y: 216 }, clouds: { scale: 0.5, top: 96, x: 80, y: 150 } },
+}
 var SHORE = 452 // where the waves end in foam
 var WET = 490   // wet sand gives way to dry sand (lower under the rocks, which stand in the wet)
 
@@ -278,9 +284,10 @@ function seaItems(animate) {
 function seaScene(time) {
   palette(time)
   scene("sea_" + time, { w: W, h: H, bg: "U" },
-    ...skyLayer(time, SKY),
+    ...skyLayer(time, SKY_OPTS[time]),
     ...seaItems(false),
   )
 }
 
 seaScene("dusk")
+seaScene("night")
