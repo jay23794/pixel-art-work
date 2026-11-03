@@ -26,7 +26,7 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 - Safe zones: top **84** px, bottom **117** px, sides **20** px hold no key detail.
   The horizon or focal point sits on a third inside the safe area.
 
-## Palette
+## Palette (32 colours: 6 ramps × 5 + foliage J/j)
 - `palettes.px.js` holds the palettes. Start every study with `palette("dusk")` (or `sunrise`,
   `day`, `night`). All four have the same 30 keys in the same order, so a study renders under any
   of them without changes.
