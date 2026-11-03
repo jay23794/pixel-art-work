@@ -1,5 +1,5 @@
-// jungle — looking into a deep jungle at dusk: jungle_dusk. (jungle_night later: palette swap +
-// skyLayer("night"), moon in the canopy gap.)
+// jungle — looking into a deep jungle: jungle_dusk, jungle_night (pure palette swap +
+// skyLayer("night"), the moon behind the same canopy gap).
 //
 // Light: the low dusk sun behind a gap in the canopy, upper right (SUN). Its light comes down
 // through the gap as stepped shafts onto one clearing (the focal point); leaf clusters and trunks
@@ -16,6 +16,8 @@ var W = 360, H = 640
 // The sun stands in the canopy gap; clouds are pushed off-canvas (the canopy hides the sky).
 var SKY = { sun: { x: 268, y: 150 }, clouds: { x: -400, stratus: { hide: [0, 1, 2] } } }
 var SUN = skyLight("dusk", SKY)
+// Night: the moon behind the same canopy gap, so the shafts become moonlight (palette swap).
+var SKY_OPTS = { dusk: SKY, night: { moon: { x: SUN.x, y: SUN.y }, clouds: { x: -400, stratus: { hide: [0] } } } }
 var GAP = { x: 262, y: 140, rx: 62, ry: 56 }       // opening in the near canopy
 var CLEARING = { x: 162, y: 446, rx: 52, ry: 14 }  // where the shafts land
 
@@ -239,12 +241,15 @@ function nearTrunks(c) {
 
 /** Vines from the top: wavering lines with small leaves, lit on the sun's side. */
 var VINES = [[58, 230], [104, 170], [196, 132], [222, 250], [304, 210]]
-function vines(c) {
+// Built per time (items run at build time, after every definition, so they must capture the time
+// whose leaf part they stamp rather than read a global).
+function vinesFor(time) { return function (c) { vines(c, time) } }
+function vines(c, time) {
   VINES.forEach(function (v, vi) {
     for (var y = 0; y < v[1]; y++) {
       var x = Math.round(v[0] + 3 * Math.sin(y / 17 + vi) + 1.5 * Math.sin(y / 6 + vi * 2))
       c.px(x, y, "H"); c.px(x + (SUN.x > x ? 1 : -1), y, "J")
-      if (y % 13 === 6) c.stamp("_leafB_" + TIME, x - (y % 26 < 13 ? 5 : 0), y - 2, y % 26 < 13 ? { flip: "x" } : {})
+      if (y % 13 === 6) c.stamp("_leafB_" + time, x - (y % 26 < 13 ? 5 : 0), y - 2, y % 26 < 13 ? { flip: "x" } : {})
     }
   })
 }
@@ -314,7 +319,6 @@ function midPlants(c) {
 
 // ---------------------------------------------------------------- scene
 
-var TIME = "dusk" // the time being defined (vines stamp that time's leaf part)
 
 /**
  * The static pieces of the scene as parts (built once, stamped): far wall, second far row,
@@ -344,17 +348,17 @@ function jungleScene(time) {
   palette(time)
   defineParts(time)
   defineLayers(time)
-  TIME = time
   var t = "_" + time
   scene("jungle_" + time, { w: W, h: H, bg: "U" },
-    ...skyLayer(time, SKY),
+    ...skyLayer(time, SKY_OPTS[time]),
     stamp("_far" + t, 0, 0), stamp("_far2" + t, 0, 0), stamp("_midfar" + t, 0, 0),
     fog,
     stamp("_ground" + t, 0, 0), stamp("_under" + t, 0, 0), stamp("_mid" + t, 0, 0),
     shafts,
     stamp("_near" + t, 0, 0),
-    vines,
+    vinesFor(time),
   )
 }
 
 jungleScene("dusk")
+jungleScene("night")
