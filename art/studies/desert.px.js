@@ -51,15 +51,18 @@ function farMesas(c) {
  * of the far mesas dissolve into the first bands.
  */
 var HAZE = [[HORIZON - 4, "z"], [HORIZON, "k"], [HORIZON + 4, "g"], [HORIZON + 10, "a"], [HORIZON + 22, "s"]]
-function farPlain(c) {
-  for (var y = HORIZON - 4; y < H; y++) {
-    var k = null
-    for (var i = 0; i < HAZE.length; i++) if (y >= HAZE[i][0]) k = HAZE[i][1]
+function farPlain(c, phase) {
+  for (var y = HORIZON - 4; y < H; y++)
     for (var x = 0; x < W; x++) {
       if (y < HORIZON && !c.is(x, y, "hz")) continue // above the horizon: only the mesa bases
+      var k = null
+      for (var i = 0; i < HAZE.length; i++) {
+        // Loops: band edges below the horizon shimmer, a wave travelling sideways (±1–2 px).
+        var wob = phase === undefined || i === 0 ? 0 : Math.round(1.5 * Math.sin(x / 6 + i * 1.7 + 2 * Math.PI * phase))
+        if (y >= HAZE[i][0] + wob) k = HAZE[i][1]
+      }
       c.px(x, y, k)
     }
-  }
 }
 
 // ---------------------------------------------------------------- hero mesa
@@ -296,6 +299,24 @@ function landItems() {
 }
 
 /**
+ * Sand grains blowing off the lit crest of D3 (dusk loop): five 2×1 grains, each lifts off the crest top and drifts
+ * downwind over the slip face, fading out (bright → sand → gone). Each grain runs once per loop at
+ * its own offset; it starts on the crest's own rim colour, so it appears without a pop.
+ */
+function crestGrains(c) {
+  for (var i = 0; i < 5; i++) {
+    var u = ((c.phase || 0) + i / 5) % 1
+    if (u > 0.8) continue
+    var x0 = 148 + i * 4, y0 = D3.P[x0] - 1
+    var x = Math.round(x0 - 26 * u), y = Math.round(y0 - 3 * Math.sin(Math.PI * u) + 4 * u * u)
+    c.rect(x, y, 2, 1, u < 0.35 ? "g" : u < 0.6 ? "a" : "s") // 2×1: reads at phone size
+  }
+}
+
+// Loop motion (anims only): dusk clouds sway 1 px; night stars twinkle above the mesa's top.
+var SKY_MOTION = { dusk: { clouds: 1 }, night: { twinkle: { n: 7, maxY: 280 } } }
+
+/**
  * The study for one time of day: palette swap + skyLayer(time); everything else is the same
  * drawing (night = pure palette swap, lit from the dusk sun's side where the moon now stands).
  */
@@ -308,6 +329,13 @@ function desertScene(time) {
     farPlain,
     stamp("_desert_land_" + time, 0, 0),
   )
+  // Seamless loop: 24 frames at 12 fps (2 s). Mesa, dunes and foreground are the stamped part.
+  anim("desert_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    ...skyLayer(time, Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+    farMesas,
+    function (c) { farPlain(c, time === "dusk" ? c.phase : undefined) },
+    function (c) { c.stamp("_desert_land_" + time, 0, 0) },
+    function (c) { if (time === "dusk") crestGrains(c) })
 }
 
 desertScene("dusk")
