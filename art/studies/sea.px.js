@@ -22,7 +22,7 @@ var LIGHT_X = SUN.x // the reflection column's axis (sun at dusk, moon at night:
 // cumulus to the upper left, away from the column.
 var SKY_OPTS = {
   dusk: SKY,
-  night: { horizon: HORIZON, moon: { x: LIGHT_X, y: 216 }, clouds: { scale: 0.5, top: 96, x: 80, y: 150 } },
+  night: { horizon: HORIZON, moon: { x: LIGHT_X, y: 216 }, clouds: { scale: 0.5, top: 96, x: 80, y: 150 }, stars: { maxY: 200 } },
 }
 var SHORE = 452 // where the waves end in foam
 var WET = 490   // wet sand gives way to dry sand (lower under the rocks, which stand in the wet)
@@ -36,8 +36,12 @@ var UP = { U: "D", D: "d", d: "u", u: "k", k: "k" }, DOWN = { k: "u", u: "d", d:
  */
 var STILL = { on: false, p: 0 }
 function motion(c) { return { on: true, p: c.phase || 0 } }
-function bob(m, i) { return m.on && Math.sin(2 * Math.PI * (m.p + i * 0.11)) > 0 ? 1 : 0 } // wave rows roll in
-function foamShift(m) { return m.on ? Math.round(3 * Math.sin(2 * Math.PI * m.p)) : 0 }     // advance / pull back
+// Wave rows roll in: row i bobs at phase i / 18, so the flips are spread evenly over the cycle and
+// the per-frame change stays steady (no pulsing).
+function bob(m, i) { return m.on && Math.sin(2 * Math.PI * (m.p - i / 18)) > 0 ? 1 : 0 }
+// Foam advances and pulls back ±3 px once per loop; the phase drifts slowly along the beach, so
+// the shoreline doesn't jump all at once (steady per-frame change, no pulsing).
+function foamShift(m, x) { return m.on ? Math.round(3 * Math.sin(2 * Math.PI * m.p - (x || 0) / 70)) : 0 }
 
 /** Water reflects the sky: pale near the horizon (reflecting the low sky), darker nearer. */
 function waterKey(x, y) {
@@ -142,7 +146,7 @@ function reflection(c, m) {
   })
   lines.forEach(function (row) {
     var hw = columnHalf(row.y), n = 0
-    var ph = 2 * Math.PI * (m.p + hash2(74, row.i, 0))
+    var ph = 2 * Math.PI * (m.p + row.i / lines.length) // evenly spread shimmer phases
     var slide = m.on ? Math.round(1.5 * Math.sin(ph)) : 0
     var flick = m.on && Math.sin(2 * ph) > 0.5 ? 1 : 0
     var y = row.y + bob(m, row.row)
@@ -160,7 +164,7 @@ function reflection(c, m) {
 
 /** Foam line positions (with the loop's advance / pull-back). */
 function foamY(x, fi, m) {
-  return Math.round(SHORE + fi * 10 + 3 * Math.sin(x / 21 + fi) + 1.5 * Math.sin(x / 7.3 + fi * 2)) + foamShift(m)
+  return Math.round(SHORE + fi * 10 + 3 * Math.sin(x / 21 + fi) + 1.5 * Math.sin(x / 7.3 + fi * 2)) + foamShift(m, x)
 }
 
 /** Foam: two broken, scalloped lines where the waves end: a lit top (m) over a softer body (l). */
@@ -281,12 +285,20 @@ function seaItems(animate) {
   ]
 }
 
+// Loop motion in the sky: dusk clouds sway 1 px; night stars twinkle above the horizon.
+var SKY_MOTION = { dusk: { clouds: 1 }, night: { twinkle: { n: 7, maxY: 190 } } }
+
 function seaScene(time) {
   palette(time)
   scene("sea_" + time, { w: W, h: H, bg: "U" },
     ...skyLayer(time, SKY_OPTS[time]),
     ...seaItems(false),
   )
+  // Seamless loop: 24 frames at 12 fps (2 s). The reflection shimmers (main motion), wave rows
+  // bob 1 px in turn, the foam advances and pulls back with the wet edge; rocks and dry sand rest.
+  anim("sea_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    ...skyLayer(time, Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+    ...seaItems(true))
 }
 
 seaScene("dusk")

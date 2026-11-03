@@ -58,6 +58,7 @@ var SKY_TIMES = {
  * `stratus: { hide: [i, ...] }` drops those stratus bands (by index in the time's list).
  * opts.sun / opts.moon (default: as designed): { x, y } puts the disk there (after horizon
  * scaling); stars still keep clear of the moon.
+ * opts.stars (default: none): { maxY } leaves out stars below that y; the others stay put.
  * opts.motion (default: none, still image): for anims, read from c.phase so loops wrap:
  *   { clouds: px }  cumulus and stratus sway ±px sideways
  *   { twinkle: { n, maxY } }  n of the medium/bright stars above maxY dim and recover.
@@ -68,7 +69,7 @@ function skyLayer(time, opts) {
   return [
     grad(0, 0, SKY_W, T.horizon, T.sky, "v", 0.6),
     rect(0, T.horizon, SKY_W, SKY_H - T.horizon, T.sky[T.sky.length - 1]),
-    function (c) { if (T.stars) skyStars(c, T.moon, T.starLimit, mo.twinkle, c.phase || 0) },
+    function (c) { if (T.stars) skyStars(c, T.moon, T.starLimit, mo.twinkle, c.phase || 0, opts && opts.stars && opts.stars.maxY) },
     function (c) { if (T.sun) skySunDisk(c, T.sun); else skyMoonDisk(c, T.moon) },
     // Crisp stepped halo: bands = ramp, so every ring is a whole ramp step (no dithered fractions).
     glow("onw", { r: T.glow.r, ramp: T.glow.ramp, bands: T.glow.ramp, where: [light.x, light.y, light.r + 1] }),
@@ -188,13 +189,14 @@ function skyMoonDisk(c, m) {
  * long cross sparkle. Density falls off from the top; none below `limit` (the lower third at the
  * reference horizon), none in the moon's glow.
  */
-function skyStars(c, moon, limit, twinkle, phase) {
+function skyStars(c, moon, limit, twinkle, phase, maxY) {
   var tw = 0
   for (var i = 0; i < 900; i++) {
     var x = 4 + Math.floor(hash2(71, i, 0) * (SKY_W - 8))
     var y = 4 + Math.floor(hash2(71, i, 1) * limit)
     var keep = Math.pow(1 - y / limit, 1.8)
     if (hash2(71, i, 2) > keep * 0.32) continue
+    if (maxY !== undefined && y > maxY) continue
     if (Math.hypot(x - moon.x, y - moon.y) < moon.r + 34) continue
     var size = hash2(71, i, 3)
     // Twinkle: the first n medium/bright stars above maxY dim for part of the loop, each at its
