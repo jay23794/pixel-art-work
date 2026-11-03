@@ -77,6 +77,13 @@ var PALETTES = {
   ],
 }
 
+// Variant for jungle_night only: the night palette with two slots that scene never uses recoloured
+// warm for the fireflies (the night palette has no warm colour). O = firefly core (warm yellow),
+// N = its glow ring (amber). Same 32 slots, same order; every other scene is unaffected.
+PALETTES.jungle_night = PALETTES.night.map(function (ramp, r) {
+  return r === 1 ? ["#ffe27a", "#d8963a"].concat(ramp.slice(2)) : ramp
+})
+
 /** Activate a palette: only its 32 keys exist afterwards, with ramps for shade/light/glow. */
 function palette(name) {
   var p = PALETTES[name]

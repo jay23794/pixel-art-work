@@ -18,6 +18,10 @@ var SKY = { sun: { x: 268, y: 150 }, clouds: { x: -400, stratus: { hide: [0, 1, 
 var SUN = skyLight("dusk", SKY)
 // Night: the moon behind the same canopy gap, so the shafts become moonlight (palette swap).
 var SKY_OPTS = { dusk: SKY, night: { moon: { x: SUN.x, y: SUN.y }, clouds: { x: -400, stratus: { hide: [0] } } } }
+// Loop motion: stills use STILL; anim items build a state from c.phase (all offsets are sins of the
+// loop phase, so frame 23 flows into frame 0).
+var STILL = { on: false, p: 0 }
+function motion(c) { return { on: true, p: c.phase || 0 } }
 var GAP = { x: 262, y: 140, rx: 62, ry: 56 }       // opening in the near canopy
 var CLEARING = { x: 162, y: 446, rx: 52, ry: 14 }  // where the shafts land
 
@@ -146,10 +150,12 @@ function midFarLayer(c) {
  * Fog: stepped bands rising off the ground between the layers. Each band recolours what's behind
  * it (far and mid-far masses, trunks, the sky) to a fog key: palest low down and further back.
  */
-function fog(c) {
+function fog(c, m) {
+  m = m || STILL
+  var shift = m.on ? Math.round(1.5 * Math.sin(2 * Math.PI * m.p)) : 0 // bands drift sideways ±1–2 px
   for (var y = 250; y < 440; y++)
     for (var x = 0; x < W; x++) {
-      var wave = Math.round(3 * Math.sin(x / 29 + y / 50))
+      var wave = Math.round(3 * Math.sin((x - shift) / 29 + y / 50))
       if (y + wave > 404 && c.is(x, y, "hfF")) c.px(x, y, "z")
       else if (y + wave > 364 && c.is(x, y, "fF")) c.px(x, y, "h")
       else if (y + wave > 318 && c.is(x, y, "F")) c.px(x, y, "f")
@@ -202,22 +208,67 @@ var ROOTS = [
  * clearing, the fog and the edges of the mid leaves they pass.
  */
 var SHAFTS = [[-24, 7], [0, 11], [22, 6]] // perpendicular offset, half-width
-function shaftAt(x, y) {
+function shaftAt(x, y, m) {
   var dx = CLEARING.x - SUN.x, dy = CLEARING.y - SUN.y, l = Math.hypot(dx, dy)
   var ux = dx / l, uy = dy / l
   var t = (x - SUN.x) * ux + (y - SUN.y) * uy, p = (x - SUN.x) * -uy + (y - SUN.y) * ux
   if (t < SUN.r + 30 || t > l + 12) return 0 // start below the sun's disk and halo
   for (var i = 0; i < SHAFTS.length; i++) {
     var hw = SHAFTS[i][1] * (0.7 + 0.5 * t / l) // widening slightly as they fall
+    if (m && m.on) hw += Math.sin(2 * Math.PI * (m.p + i / 3)) > 0 ? 1 : 0 // edges shimmer 1 px
     var off = Math.abs(p - SHAFTS[i][0] * (0.6 + 0.6 * t / l))
     if (off < hw * 0.45) return 2
     if (off < hw) return 1
   }
   return 0
 }
-function shafts(c) {
-  c.light(function (x, y) { return shaftAt(x, y) === 2 }, 2)
-  c.light(function (x, y) { return shaftAt(x, y) === 1 }, 1)
+function shafts(c, m) {
+  c.light(function (x, y) { return shaftAt(x, y, m) === 2 }, 2)
+  c.light(function (x, y) { return shaftAt(x, y, m) === 1 }, 1)
+}
+
+/**
+ * Dust motes (dusk loop): a few pale specks drifting slowly down the shafts. Each runs once per
+ * loop at its own offset and only shows inside a shaft, away from the start and end of its run.
+ */
+function motes(c, m) {
+  var dx = CLEARING.x - SUN.x, dy = CLEARING.y - SUN.y, l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l
+  for (var i = 0; i < 7; i++) {
+    var u = (m.p + i / 7) % 1
+    if (u < 0.1 || u > 0.9) continue
+    var t = 90 + hash2(95, i, 0) * 150 + 36 * u, off = (hash2(95, i, 1) - 0.5) * 50
+    var x = Math.round(SUN.x + ux * t - uy * off + 3 * Math.sin(2 * Math.PI * (u + i))), y = Math.round(SUN.y + uy * t + ux * off)
+    if (!shaftAt(x, y)) continue
+    c.rect(x, y, i % 3 === 0 ? 2 : 1, 1, "m")
+  }
+}
+
+/**
+ * Fireflies (night loop): small warm glowing dots on smooth looping paths (Lissajous, 1:2) around
+ * the clearing and the mid layer, blinking at their own phases. Each is a stepped glow: a warm
+ * yellow core (O), an amber ring (N) — both from the jungle_night palette variant — and an outer
+ * ring of neighbours one ramp step lighter (in palette, no blur).
+ */
+var FIREFLIES = (function () {
+  var out = []
+  for (var i = 0; i < 10; i++) {
+    var near = i < 5
+    out.push({
+      cx: near ? 112 + hash2(96, i, 0) * 104 : 80 + hash2(96, i, 0) * 210,
+      cy: near ? 400 + hash2(96, i, 1) * 56 : 286 + hash2(96, i, 1) * 100,
+      ax: 8 + hash2(96, i, 2) * 12, ay: 4 + hash2(96, i, 3) * 6, o1: hash2(96, i, 4), o2: hash2(96, i, 5), ob: i / 10,
+    })
+  }
+  return out
+})()
+function fireflies(c, m) {
+  FIREFLIES.forEach(function (f) {
+    if (Math.sin(2 * Math.PI * (m.p + f.ob)) < -0.25) return // blinking off
+    var x = Math.round(f.cx + f.ax * Math.sin(2 * Math.PI * (m.p + f.o1))), y = Math.round(f.cy + f.ay * Math.sin(2 * Math.PI * (2 * m.p + f.o2)))
+    c.light([x, y, 2.6], 1)
+    c.px(x - 1, y, "N"); c.px(x + 1, y, "N"); c.px(x, y - 1, "N"); c.px(x, y + 1, "N")
+    c.px(x, y, "O")
+  })
 }
 
 /** Near canopy: a dense mass along the top with the gap cut out (texture from near clusters). */
@@ -243,11 +294,13 @@ function nearTrunks(c) {
 var VINES = [[58, 230], [104, 170], [196, 132], [222, 250], [304, 210]]
 // Built per time (items run at build time, after every definition, so they must capture the time
 // whose leaf part they stamp rather than read a global).
-function vinesFor(time) { return function (c) { vines(c, time) } }
-function vines(c, time) {
+function vinesFor(time, animate) { return function (c) { vines(c, time, animate ? motion(c) : STILL) } }
+function vines(c, time, m) {
+  m = m || STILL
   VINES.forEach(function (v, vi) {
+    var sway = m.on ? 2 * Math.sin(2 * Math.PI * m.p + vi * 1.3) : 0 // pinned at the top, swinging below
     for (var y = 0; y < v[1]; y++) {
-      var x = Math.round(v[0] + 3 * Math.sin(y / 17 + vi) + 1.5 * Math.sin(y / 6 + vi * 2))
+      var x = Math.round(v[0] + 3 * Math.sin(y / 17 + vi) + 1.5 * Math.sin(y / 6 + vi * 2) + sway * y / v[1])
       c.px(x, y, "H"); c.px(x + (SUN.x > x ? 1 : -1), y, "J")
       if (y % 13 === 6) c.stamp("_leafB_" + time, x - (y % 26 < 13 ? 5 : 0), y - 2, y % 26 < 13 ? { flip: "x" } : {})
     }
@@ -345,7 +398,8 @@ function defineLayers(time) {
 }
 
 function jungleScene(time) {
-  palette(time)
+  // Night uses its own variant: the night palette plus two warm firefly slots (see palettes.px.js).
+  palette(time === "night" ? "jungle_night" : time)
   defineParts(time)
   defineLayers(time)
   var t = "_" + time
@@ -358,6 +412,17 @@ function jungleScene(time) {
     stamp("_near" + t, 0, 0),
     vinesFor(time),
   )
+  // Seamless loop: 24 frames at 12 fps (2 s). Fog drifts, shaft edges shimmer, vines sway; dusk:
+  // dust motes in the shafts; night: fireflies (the main motion). Trunks, ground, canopy still.
+  anim("jungle_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    ...skyLayer(time, SKY_OPTS[time]),
+    stamp("_far" + t, 0, 0), stamp("_far2" + t, 0, 0), stamp("_midfar" + t, 0, 0),
+    function (c) { fog(c, motion(c)) },
+    stamp("_ground" + t, 0, 0), stamp("_under" + t, 0, 0), stamp("_mid" + t, 0, 0),
+    function (c) { shafts(c, motion(c)) },
+    function (c) { if (time === "dusk") motes(c, motion(c)); else fireflies(c, motion(c)) },
+    stamp("_near" + t, 0, 0),
+    vinesFor(time, true))
 }
 
 jungleScene("dusk")
