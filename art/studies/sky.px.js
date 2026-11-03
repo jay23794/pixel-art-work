@@ -1,0 +1,247 @@
+// sky — the four times of day: sky_sunrise, sky_day, sky_dusk, sky_night.
+// One generator, four palettes (same keys; palette swap per time of day).
+// Light: the sun (or moon) of each scene is the single light source; every cloud's lit edge
+// faces it and its underside turns away from it.
+//   sunrise: low, left    day: high, upper right    dusk: low, right    night: moon, upper left
+include("../palettes.px.js")
+include("../lib/noise.px.js")
+include("../lib/dither.px.js")
+
+var W = 360, H = 640
+var HORIZON = 456 // a little below the lower third line; the sun sits on it
+
+// glow.r is the halo's reach beyond the disk edge (glow measures from every disk pixel).
+// Cloud roles → palette keys: [bottom rim, underside, body, lit edge, highlight].
+var TIMES = {
+  sunrise: {
+    sky: "UUDDddduuk", land: "fFFHH",
+    sun: { x: 110, y: 434, r: 20, cut: "u" }, glow: { r: 12, ramp: 1 },
+    cloud: "LCclo",
+    cumulus: [{ x: 196, y: 300, w: 134, h: 50, seed: 11 }, { x: 34, y: 236, w: 74, h: 26, seed: 12 }],
+    stratus: [{ x: 150, y: 410, len: 200, th: 10, seed: 13 }, { x: 8, y: 380, len: 140, th: 8, seed: 14 },
+              { x: 210, y: 350, len: 130, th: 7, seed: 15 }],
+  },
+  day: {
+    sky: "UUDDDddduk", land: "hffFF",
+    sun: { x: 268, y: 152, r: 14 }, glow: { r: 18, ramp: 2 },
+    cloud: "LCclm",
+    cumulus: [{ x: 38, y: 372, w: 206, h: 74, seed: 21 }, { x: 232, y: 282, w: 96, h: 36, seed: 22 }],
+    stratus: [{ x: 20, y: 206, len: 160, th: 7, seed: 23 }],
+  },
+  dusk: {
+    sky: "UUUDDddduk", land: "FFHHH",
+    sun: { x: 252, y: 434, r: 22, cut: "u" }, glow: { r: 22, ramp: 2 },
+    cloud: "UDLuk", // backlit: slate body, plum underside, coral rim against the rose sky
+    cumulus: [{ x: 30, y: 250, w: 150, h: 54, seed: 31 }],
+    stratus: [{ x: 160, y: 414, len: 200, th: 9, seed: 32 }, { x: 0, y: 392, len: 170, th: 10, seed: 33 },
+              { x: 196, y: 366, len: 140, th: 7, seed: 34 }],
+  },
+  night: {
+    sky: "UUUUDDDddu", land: "FHHHH",
+    moon: { x: 112, y: 184, r: 18 }, glow: { r: 14, ramp: 1 },
+    cloud: "LCclm",
+    cumulus: [{ x: 196, y: 404, w: 128, h: 40, seed: 41 }],
+    stratus: [{ x: 30, y: 210, len: 180, th: 8, seed: 42 }],
+    stars: true,
+  },
+}
+
+// ---------------------------------------------------------------- sun and moon
+
+/** Sun disk: white-hot body with a 2-px warm rim. */
+function sunDisk(c, s) {
+  for (var dy = -s.r; dy <= s.r; dy++) {
+    var hw = Math.round(Math.sqrt((s.r + 0.5) * (s.r + 0.5) - dy * dy))
+    var hc = Math.round(Math.sqrt(Math.max(0, (s.r - 1.5) * (s.r - 1.5) - dy * dy)))
+    c.hline(s.x - hw, s.y + dy, 2 * hw + 1, "o")
+    if (hc > 0) c.hline(s.x - hc, s.y + dy, 2 * hc + 1, "w")
+  }
+}
+
+/**
+ * Cut-lines across a low sun's lower half (the sun seen through layers of haze over the horizon):
+ * solid runs shrink while the gaps grow towards the horizon. Painted after the glow, in the
+ * near-horizon sky colour, so the halo doesn't fill them in.
+ */
+function sunCuts(c, s) {
+  var y = Math.round(s.r * 0.1), solid = 5, gap = 1
+  while (y <= s.r + 1) {
+    y += solid
+    for (var g = 0; g < gap; g++) {
+      var dy = y + g
+      if (dy > s.r) break
+      var hw = Math.round(Math.sqrt((s.r + 0.5) * (s.r + 0.5) - dy * dy))
+      c.hline(s.x - hw, s.y + dy, 2 * hw + 1, s.cut)
+    }
+    y += gap
+    solid = Math.max(2, solid - 1)
+    if (solid <= 3) gap = Math.min(4, gap + 1)
+  }
+}
+
+/** Full moon: pale disk with darker maria (clusters from 2D noise), in the moon ramp. */
+function moonDisk(c, m) {
+  for (var dy = -m.r; dy <= m.r; dy++)
+    for (var dx = -m.r; dx <= m.r; dx++) {
+      var d = Math.sqrt(dx * dx + dy * dy)
+      if (d > m.r + 0.5) continue
+      var mare = fbm2(5, (dx + 40) / 9, (dy + 40) / 9, { octaves: 2 }) > 0.58
+      c.px(m.x + dx, m.y + dy, mare ? "n" : "o")
+    }
+}
+
+// ---------------------------------------------------------------- stars
+
+/**
+ * Night stars, 3 sizes: 1 px (dim), 2×2 (medium), 3×3 plus (bright); a few bright ones get a
+ * long cross sparkle. Density falls off from the top; none in the lower third, none in the
+ * moon's glow.
+ */
+function stars(c, moon) {
+  var limit = Math.round(H * 2 / 3) - 8
+  for (var i = 0; i < 900; i++) {
+    var x = 4 + Math.floor(hash2(71, i, 0) * (W - 8))
+    var y = 4 + Math.floor(hash2(71, i, 1) * limit)
+    var keep = Math.pow(1 - y / limit, 1.8)
+    if (hash2(71, i, 2) > keep * 0.32) continue
+    if (Math.hypot(x - moon.x, y - moon.y) < moon.r + 34) continue
+    var size = hash2(71, i, 3)
+    if (size < 0.84) c.px(x, y, size < 0.5 ? "l" : "m")
+    else if (size < 0.96) c.rect(x, y, 2, 2, "n")
+    else {
+      c.rect(x - 1, y, 3, 1, "o"); c.rect(x, y - 1, 1, 3, "o"); c.px(x, y, "w")
+      if (size > 0.985) // cross sparkle
+        for (var k = 2; k <= 4; k++) {
+          var key = k < 4 ? "n" : "m"
+          c.px(x - k, y, key); c.px(x + k, y, key); c.px(x, y - k, key); c.px(x, y + k, key)
+        }
+    }
+  }
+}
+
+// ---------------------------------------------------------------- clouds
+
+/** Unit vector from (x, y) towards the light. */
+function toLight(light, x, y) {
+  var dx = light.x - x, dy = light.y - y, l = Math.hypot(dx, dy) || 1
+  return [dx / l, dy / l]
+}
+
+/**
+ * Cumulus: puffs over a flat base line `y`, painted back to front (puffs whose bottoms sit
+ * higher are further away). Main puffs give the mass, smaller bumps on their tops give the
+ * cauliflower silhouette. Shading is by edges, the pixel-art way, not by sphere gradients:
+ *   lit crescent — the part of a puff within ~a quarter of its size of its edge towards the light,
+ *   highlight    — the outermost pixel of that crescent on the cloud's silhouette,
+ *   shadow       — a puff's lower part, and wherever a nearer puff blocks the light (occlusion),
+ *   bottom       — 3 shaded rows above the flat base and a darker rim row on it.
+ * o: { x, y (base line), w, h, seed }, keys: roles string, light: { x, y }.
+ */
+function cumulus(c, o, keys, light) {
+  var n = Math.max(3, Math.round(o.w / 24)), blobs = []
+  for (var i = 0; i < n; i++) {
+    var t = (i + 0.5) / n, hump = Math.sin(Math.PI * t)
+    var r = o.h * (0.26 + 0.46 * hump) * (0.8 + 0.4 * hash2(o.seed, i, 0))
+    var b = {
+      x: o.x + t * o.w + (hash2(o.seed, i, 1) - 0.5) * 10,
+      y: o.y - r * 0.4 - hump * o.h * 0.3 + (hash2(o.seed, i, 2) - 0.5) * 6,
+      rx: r * 1.15, ry: r,
+    }
+    blobs.push(b)
+    // 1–2 bumps riding on the puff's upper edge.
+    var m = 1 + Math.floor(hash2(o.seed, i, 3) * 2)
+    for (var j = 0; j < m; j++) {
+      var a = -Math.PI / 2 + (hash2(o.seed, i, 4 + j) - 0.5) * 2.0, rr = r * (0.34 + 0.16 * hash2(o.seed, i, 6 + j))
+      blobs.push({ x: b.x + Math.cos(a) * b.rx * 0.78, y: b.y + Math.sin(a) * b.ry * 0.78, rx: rr * 1.15, ry: rr })
+    }
+  }
+  // Back to front: puffs whose bottom edge is higher are further away.
+  blobs.sort(function (p, q) { return (p.y + p.ry) - (q.y + q.ry) })
+  // The cloud's light never comes from below the horizontal: a low sun lights its side,
+  // and the underside stays shaded.
+  var L = toLight(light, o.x + o.w / 2, o.y - o.h / 2)
+  if (L[1] > -0.15) { L[1] = -0.15; var l = Math.hypot(L[0], L[1]); L = [L[0] / l, L[1] / l] }
+
+  function inBlob(b, x, y) {
+    var nx = (x + 0.5 - b.x) / b.rx, ny = (y + 0.5 - b.y) / b.ry
+    return nx * nx + ny * ny <= 1 && y < o.y
+  }
+  function inAny(x, y, from) {
+    for (var i = from; i < blobs.length; i++) if (inBlob(blobs[i], x, y)) return true
+    return false
+  }
+  blobs.forEach(function (b, bi) {
+    var lit = Math.max(3, Math.round(b.ry * 0.28))
+    for (var y = Math.floor(b.y - b.ry); y < o.y; y++)
+      for (var x = Math.floor(b.x - b.rx); x <= b.x + b.rx; x++) {
+        if (!inBlob(b, x, y)) continue
+        var ny = (y + 0.5 - b.y) / b.ry
+        var tx = x + Math.round(L[0] * lit), ty = y + Math.round(L[1] * lit)
+        var k = 2
+        if (ny > 0.38) k = 1 // lower part of the puff turns away
+        if (!inBlob(b, tx, ty)) {
+          k = 3 // near this puff's edge towards the light
+          var ex = x + Math.round(L[0] * 1.5), ey = y + Math.round(L[1] * 1.5)
+          if (!inAny(ex, ey, 0)) k = 4 // on the cloud's own silhouette: rim highlight
+        }
+        // Occlusion: a nearer puff between this pixel and the light casts a shadow band
+        // (several px wide, so it reads as shadow, not as an outline).
+        for (var d = 2; d <= 10; d += 2)
+          if (inAny(x + Math.round(L[0] * d), y + Math.round(L[1] * d), bi + 1)) { k = 1; break }
+        var fromBase = o.y - 1 - y
+        if (fromBase === 0) k = 0
+        else if (fromBase < 3 && k > 1) k = 1
+        c.px(x, y, keys[k])
+      }
+  })
+}
+
+/**
+ * Stratus: a long thin band, tapered at both ends with a slow wave. The side facing the light
+ * (its top when the light is above, its end when the light is level) is lit; the lower rows are
+ * the shaded underside with a darker rim on the bottom row.
+ */
+function stratus(c, o, keys, light) {
+  var L = toLight(light, o.x + o.len / 2, o.y)
+  for (var i = 0; i < o.len; i++) {
+    var t = i / (o.len - 1)
+    var th = Math.round(o.th * Math.pow(Math.sin(Math.PI * t), 0.6) * (0.7 + 0.45 * fbm1(o.seed, i / 60, { octaves: 1 })))
+    if (th < 2) continue // no 1-px slivers
+    var x = o.x + i, top = o.y + Math.round(2 * Math.sin(i / 44 + o.seed)) - (th >> 1)
+    var end = L[0] > 0 ? t : 1 - t // 1 at the end facing the light
+    var endLit = Math.abs(L[0]) > 0.5 && end > 0.8
+    for (var r = 0; r < th; r++) {
+      var k = 2
+      if (r === th - 1) k = th >= 4 ? 0 : 1
+      else if (r >= th - 2 && th >= 4) k = 1
+      else if (r === 0 && (L[1] < -0.3 || endLit)) k = endLit && end > 0.92 ? 4 : 3
+      else if (endLit && r < th / 2) k = 3
+      c.px(x, top + r, keys[k])
+    }
+  }
+}
+
+// ---------------------------------------------------------------- scenes
+
+function skyScene(name) {
+  var T = TIMES[name], light = T.sun || T.moon
+  palette(name)
+  scene("sky_" + name, { w: W, h: H, bg: "U" },
+    grad(0, 0, W, HORIZON, T.sky, "v", 0.6),
+    function (c) { if (T.stars) stars(c, T.moon) },
+    function (c) { if (T.sun) sunDisk(c, T.sun); else moonDisk(c, T.moon) },
+    // Crisp stepped halo: bands = ramp, so every ring is a whole ramp step (no dithered fractions).
+    glow("onw", { r: T.glow.r, ramp: T.glow.ramp, bands: T.glow.ramp, where: [light.x, light.y, light.r + 1] }),
+    function (c) { if (T.sun && T.sun.cut) sunCuts(c, T.sun) },
+    grad(0, HORIZON, W, H - HORIZON, T.land, "v", 0.6),
+    function (c) {
+      T.stratus.forEach(function (s) { stratus(c, s, T.cloud, light) })
+      T.cumulus.forEach(function (s) { cumulus(c, s, T.cloud, light) })
+    },
+  )
+}
+
+skyScene("sunrise")
+skyScene("day")
+skyScene("dusk")
+skyScene("night")
