@@ -27,6 +27,7 @@ npx playwright install chromium   # headless browser for frame capture and e2e t
 | ------------------- | --------------------------------------------- |
 | `npm run render -- <scene.json\|sequence.json>` | Export MP4 + frame-hash manifest (see Export, Sequences) |
 | `npm run import -- <export> --id <id>` | Import a FrameBaker spritesheet as an asset (see Assets) |
+| `npm run lab` / `lab:snap -- <study>` / `lab:loop -- <study>` | Visual exploration lab: pixel-buffer studies in `lab/studies/` (see `lab/CLAUDE.md`); snapshots and loops go to `out/lab/` |
 | `npm run dev`       | Preview at http://localhost:5173 (`?scene=desert-lab&frame=N`; console: `renderFrame(n)`) |
 | `npm run build`     | Type-check, then production build into `dist/` |
 | `npm test`          | Unit tests (Vitest, `tests/**/*.test.ts`)     |
@@ -49,6 +50,8 @@ scenes/          JSON scene files (composition only)
 sequences/       JSON shot lists that cut scenes together into one video
 assets/sprites/  sprite/animation assets (<id>.json + <id>.png)
 src/assets/      asset contract, registry, preloader, cleanup, FrameBaker importer
+lab/             visual exploration lab (pixel-buffer studies, own rules in lab/CLAUDE.md)
+docs/            art direction (palette ramps, light, outlines, dithering, safe zones); tasks/
 legacy/          original Desert Lab files (scene.html is the music-free reference)
 tests/           unit tests
 tests/golden/    reference frames for regression tests

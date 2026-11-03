@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>PixelForge Lab</title>
+    <style>
+      :root { color-scheme: dark; --bg: #111118; --panel: #1b1b24; --line: #2c2c3a; --text: #e6e6ee; --muted: #9a9ab0; --accent: #f4a44a; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
+      body { display: flex; }
+      aside { width: 280px; flex: none; padding: 14px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+      main { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 16px; }
+      h1 { font-size: 15px; margin: 0; }
+      h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 6px; }
+      label { display: block; }
+      select, input[type=number], button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+      button { cursor: pointer; }
+      button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+      .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .param { margin-bottom: 8px; }
+      .param .head { display: flex; justify-content: space-between; color: var(--muted); }
+      .param input { width: 100%; }
+      input[type=range] { accent-color: var(--accent); }
+      #stage { position: relative; line-height: 0; }
+      #stage canvas { image-rendering: pixelated; display: block; }
+      #overlay { position: absolute; inset: 0; pointer-events: none; }
+      #status { color: var(--muted); min-height: 1.4em; word-break: break-all; }
+      #time { font-variant-numeric: tabular-nums; }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>PixelForge Lab</h1>
+      <section>
+        <h2>Study</h2>
+        <select id="study"></select>
+      </section>
+      <section>
+        <h2>View</h2>
+        <div class="row" id="scales"></div>
+        <label class="row" style="margin-top:6px"><input type="checkbox" id="safe" /> Safe zones (top 84, bottom 117, sides 20)</label>
+      </section>
+      <section>
+        <h2>Time</h2>
+        <div class="row"><button id="play">▶ Play</button> <span id="time">0.00 s</span></div>
+        <input type="range" id="scrub" min="0" step="0.041666" value="0" style="width:100%" />
+      </section>
+      <section>
+        <h2>Params</h2>
+        <label class="param"><div class="head"><span>seed</span></div><input type="number" id="seed" value="1" step="1" /></label>
+        <div id="params"></div>
+        <button id="reset">Reset params</button>
+      </section>
+      <section>
+        <button id="snap">Snapshot (3× PNG)</button>
+        <div id="status"></div>
+      </section>
+    </aside>
+    <main>
+      <div id="stage"><canvas id="view" width="360" height="640"></canvas><canvas id="overlay" width="360" height="640"></canvas></div>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

@@ -15,7 +15,10 @@
     "lint": "eslint .",
     "capture:golden": "tsx scripts/capture-golden.ts",
     "render": "tsx src/video/cli.ts",
-    "import": "tsx src/assets/import-cli.ts"
+    "import": "tsx src/assets/import-cli.ts",
+    "lab": "vite --config lab/vite.config.ts",
+    "lab:snap": "tsx lab/cli.ts snap",
+    "lab:loop": "tsx lab/cli.ts loop"
   },
   "dependencies": {
     "pixi.js": "^8.22.0",
