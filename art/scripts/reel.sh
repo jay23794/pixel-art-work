@@ -3,16 +3,19 @@
 #
 #   art/scripts/reel.sh <study> [seconds=10] [--still] [--asset NAME]
 #
-# <study>    art/studies/<study>.px.js; the exported asset defaults to the same name. If the
-#            study has no asset of that name, every anim in it is exported (reels/<anim>.mp4).
-# seconds    reel length; must be a whole number of animation cycles (2 s for 24 f @ 12 fps).
+# <study>    art/studies/<study>.px.js. Which asset is exported:
+#              MP4:     <study>_loop if the study has it, else <study>, else every anim in it
+#                       (reels/<anim>.mp4).
+#              --still: <study>, else every anim's first frame.
+# seconds    reel length; must be a whole number of animation cycles. The cycle is the anim's
+#            frames / fps (24 f @ 12 fps = 2 s, 48 f @ 12 fps = 4 s); other lengths fail.
 # --still    export art/out/reels/<study>.png (1080×1920, 3×) instead of an MP4.
 # --asset    export another asset from the study file (e.g. its anim) as reels/<asset>.*
 #
 # Every run checks that every pixel of every frame is a palette colour (fails otherwise).
 set -euo pipefail
 
-usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 study="" seconds=10 still=0 asset=""
 while [[ $# -gt 0 ]]; do
@@ -70,7 +73,10 @@ if [[ -n "$asset" ]]; then
 else
   # Assets in the study: "<kind> <name> <file:line>" per line.
   list="$(node "$PXL" list "$FILE")"
-  if awk -v n="$study" '$2 == n { found = 1 } END { exit !found }' <<<"$list"; then
+  has() { awk -v n="$1" '$2 == n { found = 1 } END { exit !found }' <<<"$list"; }
+  if [[ $still == 0 ]] && has "${study}_loop"; then
+    export_asset "${study}_loop" # a study with both <study> and <study>_loop: the reel is the loop
+  elif has "$study"; then
     export_asset "$study"
   else
     anims="$(awk '$1 == "anim" && $2 !~ /^_/ { print $2 }' <<<"$list")"

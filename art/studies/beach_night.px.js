@@ -491,12 +491,15 @@ function palm(c, m) {
     for (var x = 0; x < W; x++) {
       var v = mask[y * W + x]
       if (!v) continue
-      var lit = !at(x + 1, y) || !at(x + 1, y - 1) && !at(x, y - 1) // edge facing the moon (upper right)
+      // edge facing the moon (upper right); the trunk only looks at itself, so swaying fronds
+      // never change its shading
+      var A = v === 1 ? at : function (x, y) { return at(x, y) >= 2 }
+      var lit = !A(x + 1, y) || !A(x + 1, y - 1) && !A(x, y - 1)
       var k
       // fronds: the top edge facing the moon in z (moonlit green, beach_night palette), the right edge in j
       if (v === 1) k = !at(x, y - 1) && !at(x + 1, y - 1) ? "z" : lit ? "j" : "J"
-      else k = v === 3 ? "B" : lit ? "b" : !at(x - 1, y) ? "B" : "R"
-      if (v === 2 && !lit && at(x + 1, y) === 2 && !at(x + 2, y)) k = "r" // a step before the lit edge
+      else k = v === 3 ? "B" : lit ? "b" : !A(x - 1, y) ? "B" : "R"
+      if (v === 2 && !lit && at(x + 1, y) === 2 && !A(x + 2, y)) k = "r" // a step before the lit edge
       c.px(x, y, k)
     }
 }

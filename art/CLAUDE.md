@@ -74,12 +74,14 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 ## Still first, then motion
 - Show a still image first. Animate only after the still is approved.
 - Loops: **24 frames at 12 fps** (2 s cycle), `anim(name, { frames: 24, fps: 12 }, ...)`, drawn
-  from `c.phase` so the loop wraps seamlessly.
+  from `c.phase` so the loop wraps seamlessly. A study may use a longer cycle when its brief says
+  so (`beach_night_loop`: 48 frames, 4 s).
 - pxl rounds 1000/12 ms to 83 ms, so its GIF previews loop in 1992 ms. `reel.sh` samples by frame
   count at the nominal fps, so each cycle in the MP4 lasts exactly 2.000 s.
-- Reel length is a multiple of 2 s (default 10 s): `art/scripts/reel.sh <study> [seconds]`.
-  The script refuses lengths that aren't a whole number of cycles. Without `--asset`, a study
-  with no asset of its own name exports every anim in it.
+- Reel length is a whole number of cycles (default 10 s): `art/scripts/reel.sh <study> [seconds]`.
+  The cycle is the anim's frames / fps; the script refuses other lengths. Without `--asset`, the
+  MP4 is `<study>_loop` if the study has one, else `<study>`, else every anim in it; `--still`
+  exports `<study>`.
 - Loops of heavy scenes: build the still parts once as `_part` scenes (one per motion offset
   if they move) and `stamp` them per frame, so 24 frames don't redraw everything.
 
