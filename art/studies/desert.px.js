@@ -1,5 +1,5 @@
-// desert — a wide desert at dusk: desert_dusk. (desert_night later: palette swap + skyLayer("night"),
-// moon on the sun's side.)
+// desert — a wide desert: desert_dusk, desert_night (pure palette swap + skyLayer("night"), moon on
+// the sun's side).
 //
 // Light: the dusk sun of skyLayer("dusk"), sinking into the heat haze at x 252. Faces turned
 // towards it are lit (the mesa's right side, dune faces on the sun's side of each crest); faces
@@ -18,6 +18,12 @@ var HORIZON = 330
 // The stratus band that would sit on the mesa's top (index 1) is dropped.
 var SKY = { horizon: HORIZON, clouds: { scale: 0.6, top: 96, x: 286, y: 168, stratus: { hide: [1] } } }
 var SUN = skyLight("dusk", SKY)
+// Night: the moon upper right on the sun's side, so the lighting stays correct; the cumulus goes
+// to the upper middle-left, well above the mesa.
+var SKY_OPTS = {
+  dusk: SKY,
+  night: { horizon: HORIZON, moon: { x: 262, y: 150 }, clouds: { scale: 0.5, top: 96, x: 118, y: 150 } },
+}
 
 // ---------------------------------------------------------------- far plain and far mesas
 
@@ -275,12 +281,9 @@ function pebbles(c) {
 
 // ---------------------------------------------------------------- scene
 
-function desertScene(time) {
-  palette(time)
-  scene("desert_" + time, { w: W, h: H, bg: "U" },
-    ...skyLayer(time, SKY),
-    farMesas,
-    farPlain,
+/** Mesa, dunes and pebbles: drawn once per time as a part and stamped (nothing in it moves). */
+function landItems() {
+  return [
     heroMesa,
     function (c) {
       drawDune(c, { D: D1, lit: "g", shade: "a", rim: "g" })
@@ -289,7 +292,23 @@ function desertScene(time) {
       drawDune(c, { D: D4, lit: "S", shade: "A", rim: "s", seed: 4, ripple: { lit: "s", shade: "B", gapShade: 5, long: [22, 40, 62, 90] } })
     },
     pebbles,
+  ]
+}
+
+/**
+ * The study for one time of day: palette swap + skyLayer(time); everything else is the same
+ * drawing (night = pure palette swap, lit from the dusk sun's side where the moon now stands).
+ */
+function desertScene(time) {
+  palette(time)
+  scene("_desert_land_" + time, { w: W, h: H }, ...landItems())
+  scene("desert_" + time, { w: W, h: H, bg: "U" },
+    ...skyLayer(time, SKY_OPTS[time]),
+    farMesas,
+    farPlain,
+    stamp("_desert_land_" + time, 0, 0),
   )
 }
 
 desertScene("dusk")
+desertScene("night")
