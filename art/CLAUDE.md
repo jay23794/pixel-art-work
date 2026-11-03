@@ -9,6 +9,14 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 - Landscapes and light only: sky, sun/moon, clouds, mountains, desert, sea, jungle, haze.
 - No objects, vehicles or characters.
 
+## Times of day
+- Every study is **dusk + night only**. Sunrise and day are parked (their palettes and skies exist
+  but are not approved; don't use them).
+- Pattern (see `studies/mountains.px.js`): one `<study>Scene(time)` function draws everything;
+  `<study>_dusk` first, `<study>_night` only after dusk is approved, as a pure palette swap +
+  `skyLayer("night")`. Light comes from the dusk sun; at night put the moon on the sun's side
+  (`skyLayer` `moon` option) so the existing lighting stays correct.
+
 ## Format and art direction
 - Canvas **360×640** for every scene. Output is 3× nearest-neighbour (1080×1920).
 - Follow `docs/art-direction.md` and its checklist: palette ramps, **one light direction** per
@@ -43,9 +51,13 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 - `lib/noise.px.js`: `hash2`, `vnoise1`, `vnoise2`, `fbm1`, `fbm2` (seeded, pure JS, 0..1).
 - `lib/ridge.px.js`: `ridgeProfile`, `ridgePoly`, `slopeAt`, `cleanProfile`.
 - `lib/dither.px.js`: `bayer4`, `ditherKey`, `rampKey` (same matrix as pxl's `dither`/`grad`).
-- `lib/sky.px.js`: `skyLayer(time, { horizon })` returns the sky as scene items
+- `lib/sky.px.js`: `skyLayer(time, opts)` returns the sky as scene items
   (`scene(n, opts, ...skyLayer("dusk"), ...)`); call `palette(time)` first. `skyLight(time, opts)`
-  gives the sun/moon `{ x, y, r }` to light a study from. Only `dusk` and `night` are approved.
+  gives the sun/moon `{ x, y, r }` to light a study from. Options (defaults = the approved sky):
+  `horizon` (scales the layout), `sun`/`moon: { x, y }`, `clouds: { scale, x, y, top }`,
+  `motion: { clouds, twinkle }` for loops.
+- JS gotcha: a line starting with `[` or `(` continues the previous line. End the previous
+  statement with `;` (e.g. `var stones = [];` before `[[...]].forEach(...)`).
 
 ## Work loop
 1. Build only the asset you're working on:
@@ -62,7 +74,10 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 - pxl rounds 1000/12 ms to 83 ms, so its GIF previews loop in 1992 ms. `reel.sh` samples by frame
   count at the nominal fps, so each cycle in the MP4 lasts exactly 2.000 s.
 - Reel length is a multiple of 2 s (default 10 s): `art/scripts/reel.sh <study> [seconds]`.
-  The script refuses lengths that aren't a whole number of cycles.
+  The script refuses lengths that aren't a whole number of cycles. Without `--asset`, a study
+  with no asset of its own name exports every anim in it.
+- Loops of heavy scenes: build the still parts once as `_part` scenes (one per motion offset
+  if they move) and `stamp` them per frame, so 24 frames don't redraw everything.
 
 ## Outputs
 - `art/out/` (git-ignored by the root `out/` rule): `scenes/`, `anims/`, `_preview/`,
