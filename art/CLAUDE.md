@@ -65,6 +65,9 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   per loop: rise, peel with a thick lip over a dark hollow, billowing whitewater that collapses
   into lace, spray downwind); `breakerWash(opts, phase)` gives the wash run-up 0..1. Techniques
   borrowed from pixelfx's wave-crash, kept hard-edged and palette-only. Used by `beach_night`.
+- `lib/night_palette.px.js`: `nightPalette(accent)` = night_base (27) + one accent (`warm`, `neon`,
+  `silver`; keys 1–5) = 32. New night scenes only; existing studies still use `palettes.px.js`.
+  `node art/scripts/night-sheet.mjs` checks it and maps the existing night scenes onto it.
 - `.claude/skills/pixelfx` (patch-gg/pixelfx, MIT) is installed as a reference for effect
   techniques (water, foam, spray, weather). Studies don't depend on it: borrow ideas, not code that
   paints with alpha or additive light.
