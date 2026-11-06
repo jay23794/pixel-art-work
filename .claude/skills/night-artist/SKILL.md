@@ -67,6 +67,16 @@ Project rules still apply: `CLAUDE.md`, `art/CLAUDE.md`, `docs/art-direction.md`
 11. **Present** the 3× still (`art/out/reels/<study>.png`), the preview GIF
     (`art/out/_preview/<anim>.gif`), rounds used, motion budget. Commit only after approval.
 
+## JSON first for variations
+
+A variation of a recipe (other weather, accent, lamp, fog) is a JSON file, not a study:
+`art/scenes/<name>.json` (format: `art/scenes/README.md`), built by `art/lib/night_scene.px.js`
+and exported with `art/scripts/reel.sh --scene art/scenes/<name>.json`. Write only what differs:
+the builder fills the rest from the closest recipe and prints every rule it applied (check that
+log in the pre-flight). If the JSON can't express the brief, that's a builder gap: fix the
+builder (general, never scene-specific) and say so when presenting. A new scene type is still a
+study; once approved, teach the builder its terrain and add its recipe to `NS_RECIPES`.
+
 ## Skeleton (plain night scene)
 
 ```js

@@ -1,7 +1,7 @@
 // Builds one pxl asset, checks every pixel against its palette, and (optionally) writes a
 // 24 fps PNG sequence of whole loops for ffmpeg. Used by reel.sh.
 //
-//   node frames.mjs <file.px.js> <asset> [--seconds N --dir OUT] [--first OUT.png]
+//   node frames.mjs <file.px.js> <asset> [--seconds N --dir OUT] [--first OUT.png] [--target name:lo:hi]
 //
 // Frames come from pxl's own build (Project.frames), the same pixels as the strip PNG / GIF it
 // writes. Reading them here avoids GIF disposal quirks, and animated scenes only get a GIF.
@@ -27,7 +27,7 @@ const opt = (name) => {
   const i = args.indexOf(name);
   return i < 0 ? undefined : args.splice(i, 2)[1];
 };
-const seconds = opt("--seconds"), dir = opt("--dir"), first = opt("--first");
+const seconds = opt("--seconds"), dir = opt("--dir"), first = opt("--first"), target = opt("--target");
 const [file, asset] = args;
 if (!file || !asset) {
   console.error("usage: node frames.mjs <file.px.js> <asset> [--seconds N --dir OUT] [--first OUT.png]");
@@ -125,6 +125,11 @@ if (frames.length > 1) {
     : mean <= MOTION_CALM[1] ? "calm" : mean <= MOTION_DRAMATIC ? "dramatic (waves, storms)" : "above dramatic (busy)";
   console.log(`motion budget: ${pctFmt(mean)} of pixels change per frame (min ${pctFmt(min)}, max ${pctFmt(max)}); ` +
     `calm ${MOTION_CALM[0]}–${MOTION_CALM[1]}%, dramatic ≤ ~${MOTION_DRAMATIC}%: ${verdict}`);
+  // --target name:lo:hi (night scenes from JSON: motion.budget): the scene's own target, reported.
+  if (target) {
+    const [tn, lo, hi] = target.split(":"), l = Number(lo), h = Number(hi);
+    console.log(`motion target ${tn} ${l}–${h}%: ${mean < l ? "BELOW (too still for " + tn + ")" : mean > h ? "ABOVE (too busy for " + tn + ")" : "inside"}`);
+  }
 }
 
 if (first) writeFileSync(first, encodePng(frames[0].img));

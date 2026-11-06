@@ -1,0 +1,27 @@
+{
+  "name": "lake_night",
+  "about": "A rainy night lake: still dark water, mountains behind, one lone lamp post on a small jetty on the left; mist low over the water.",
+  "accent": "warm",
+  "length": "long",
+  "mood": "lonely, peaceful",
+  "sky": {
+    "horizon": "low",
+    "moon": { "shape": "full", "x": "right", "y": "high", "hidden": "half" },
+    "stars": false,
+    "clouds": "medium",
+    "meteor": false
+  },
+  "terrain": [
+    { "type": "ridges", "ranges": 2, "height": "high", "peaks": "sharp", "seed": 21 },
+    { "type": "lake", "lines": "some" }
+  ],
+  "lights": [
+    { "type": "lamp", "on": "jetty", "x": "left", "height": "tall", "deck": 470 }
+  ],
+  "weather": {
+    "rain": { "amount": "light", "angle": "none" },
+    "fog": { "amount": "thin", "colour": "dark", "over": "lake", "drift": "left" },
+    "lightning": false
+  },
+  "motion": { "budget": "calm" }
+}

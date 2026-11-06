@@ -17,6 +17,12 @@ Hard rules first, then lessons learned the hard way (each one cost a round).
   outshines the moon. Small points get the core; big panes chain[2–3] (`litWindow` does this).
 - **Focal point = the brightest value contrast**, and only one. If a lamp is the focal point, keep
   other lights dimmer and smaller.
+- **In rain the moon is hidden or a dim glow behind cloud — never a crisp bright shape.** No disk,
+  no halo rings: the sky one ramp step lighter, dithered out (Bayer) from ~0.6 r to r + 14, or
+  nothing at all. Its light still sets the light direction. (night_scene: `hidden: "glow"` is
+  applied automatically with rain; an explicit `hidden` in the JSON overrides it. A flat stepped
+  disc read as a pale full moon: the glow must have no edge.) lake_night predates this rule (upper
+  half of the moon visible above the cloud).
 - Moonlight through gaps (shafts, windows) turns what it crosses **cool** (`lightBeam`), not
   brighter in its own hue (jungle lesson: teal shafts looked like green glass).
 

@@ -87,3 +87,4 @@ details. All are 360×640, 12 fps. Motion budgets are what `reel.sh` measured.
 | waves, wind, shore | beach |
 | a lake / still water with a near light | lake_night |
 | a river, a valley, fireflies | valley_night |
+| any of the above with other weather / a lamp / a far village / another accent | a JSON scene (`art/scenes/`) |

@@ -111,6 +111,12 @@ Bad: frames 24 (a strike every 2 s), custom pattern with > 3 flash frames, lifti
 Good: 2:1 or 1:1 path, 150–220 px long, dur 6–9 frames in a 48-frame loop, away from the moon.
 Bad: irregular slope (jaggy stairs), crossing the focal point, more than one per loop.
 
+## Night scene from JSON — `night_scene.px.js`
+`nightScene(spec, verbose)` → defines `<name>`, `<name>_loop`, `_<name>_loop_static`; returns the
+resolved config. Format, words → numbers, rules: `art/scenes/README.md`. Built terrain: ridges, lake,
+valley, river; lights: lamp (jetty/bank), windows (a far village), fireflies. Recipes in `NS_RECIPES`, per-type defaults in
+`NS_TYPE_DEFAULTS`. Normally run through `reel.sh --scene` (the wrapper is generated).
+
 ## Terrain (your own drawing, with night keys)
 | module | calls | notes |
 |---|---|---|

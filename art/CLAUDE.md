@@ -16,6 +16,7 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 - **Exception: `lake_night`** may have one small wooden jetty and one lamp post on it (simple
   shapes, requested). No boats, buildings or figures.
 
+
 ## Times of day
 - Every study is **dusk + night only**. Sunrise and day are parked (their palettes and skies exist
   but are not approved; don't use them).
@@ -109,6 +110,11 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
     `art/scripts/reel.sh night_tests/<name> --asset test_<name>_loop`.
   - `node art/scripts/night-sheet.mjs` checks the palette; `node art/scripts/night-port-check.mjs`
     compares ported renders with `art/out/night/v1` pixel by pixel through `NIGHT_LEGACY`.
+- **Night scenes as JSON** (`art/scenes/*.json`, format in `art/scenes/README.md`):
+  `lib/night_scene.px.js` `nightScene(spec)` validates the JSON, fills defaults from the closest
+  recipe (lake_night, valley_night), maps friendly words to kit numbers and applies the night rules.
+  `art/scripts/reel.sh --scene art/scenes/<file>.json` exports still + loop with every check;
+  `node art/scripts/scene.mjs <json> --compare <study>` pixel-compares with a study.
 - `.claude/skills/pixelfx` (patch-gg/pixelfx, MIT) is installed as a reference for effect
   techniques (water, foam, spray, weather). Studies don't depend on it: borrow ideas, not code that
   paints with alpha or additive light.

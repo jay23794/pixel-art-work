@@ -1,0 +1,28 @@
+{
+  "name": "valley_night",
+  "about": "A night valley: a winding river runs from the far mountains toward the viewer under a low crescent moon in a notch; thin fog in the valley, fireflies on the near banks, one meteor per loop.",
+  "accent": "warm",
+  "length": "long",
+  "mood": "magical, calm",
+  "sky": {
+    "horizon": "mid",
+    "moon": { "shape": "crescent", "x": "notch", "y": 236, "hidden": false },
+    "stars": "high",
+    "clouds": "none",
+    "meteor": true
+  },
+  "terrain": [
+    { "type": "ridges", "ranges": 1, "height": 110, "peaks": "sharp", "notch": 192, "seed": 41 },
+    { "type": "valley", "seed": 42 },
+    { "type": "river", "width": "medium", "wind": "medium", "flow": "medium", "grass": true }
+  ],
+  "lights": [
+    { "type": "fireflies", "count": "some", "along": "river" }
+  ],
+  "weather": {
+    "rain": false,
+    "fog": { "amount": "medium", "colour": "dim", "over": "ridges", "drift": "right" },
+    "lightning": false
+  },
+  "motion": { "budget": "magical" }
+}
