@@ -1,0 +1,16 @@
+{
+  "name": "valley_rain",
+  "about": "valley_night in rain: the lit windows of a small far village at the river's source instead of fireflies; no stars or meteor.",
+  "accent": "warm",
+  "mood": "lonely, peaceful",
+  "terrain": [
+    { "type": "ridges" },
+    { "type": "valley" },
+    { "type": "river" }
+  ],
+  "lights": [
+    { "type": "windows", "at": "river", "houses": "some" }
+  ],
+  "weather": { "rain": "light", "fog": { "colour": "dark" } },
+  "motion": { "budget": "calm" }
+}

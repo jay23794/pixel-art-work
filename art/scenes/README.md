@@ -20,7 +20,7 @@ every rule it applied. The wrapper study it builds is `art/out/_scenes/<name>.px
 |---|---|---|
 | `lake_night.json` | `studies/lake_night.px.js` as JSON | identical: still + 72 loop frames |
 | `valley_night.json` | `studies/valley_night.px.js` as JSON | identical: still + 72 loop frames |
-
+| `valley_rain.json` | valley_night + light rain + lit windows of a small far village instead of fireflies (JSON only) | pending approval |
 
 ## Format
 

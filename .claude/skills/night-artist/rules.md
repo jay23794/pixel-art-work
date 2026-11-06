@@ -107,3 +107,13 @@ Hard rules first, then lessons learned the hard way (each one cost a round).
 - **Moving water should move:** a river's light lines flowing toward the viewer (0.4 px/frame,
   loop-safe shift of a whole number of line spacings) is the calmest motion that reads as alive.
   Fireflies + meteor + twinkle alone measured 0.08% — too still for "magical".
+
+## Lessons from valley_rain (first JSON variation: 2 rounds)
+- **A far village is a cluster, not a row.** Evenly spaced houses on one line read as a fence of
+  boxes (round 1); pack them (0–2 px gaps) in two staggered rows, back houses half hidden.
+- **Half-hide only a full moon behind cloud** (from a lamp draft of this scene). A cloud placed over
+  a low crescent hides it completely and, lit by it, becomes the biggest bright shape in the frame.
+  A crescent is small enough to stay clear; put rain cloud high, on the side away from the moon.
+- **Every friendly word needs its own map.** A lamp's `left` (96, its third) is not the moon's
+  `left` (88): the JSON copy of lake_night differed until the maps were split. Verify a JSON copy
+  with `scene.mjs --compare` (pixel-identical or explain).

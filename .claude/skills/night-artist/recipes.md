@@ -76,6 +76,18 @@ details. All are 360×640, 12 fps. Motion budgets are what `reel.sh` measured.
 - **Motion:** river lines flow (0.4 px/frame), fog drifts, fireflies (`nightRepeat(…, 2)`),
   meteor, twinkle n 16. **Cycle:** 72 f / 6 s. **Budget:** 0.25% (calm).
 
+## valley_rain — `art/scenes/valley_rain.json` (JSON only, variation of valley_night; 2 rounds; pending approval)
+- **Changes from valley_night:** light rain (0.3, straight), the lit windows of a small far village
+  (`windows`, 8 houses at the river's source) instead of fireflies, fog `dark`.
+- **Builder applied:** no stars, no meteor, clouds medium, moon a dim glow (rain); village on both banks at the
+  meadow's far edge (y 344, x 164–212), banks kept clear; window reflections clipped to the river.
+- **Pre-flight caught:** rainy sky (no stars, more cloud), no meteor through cloud, rain 0.3 for a
+  lonely mood, fog behind the village quiet, windows 1 px core (small points), village placed from
+  the river, object exception. **Missed (round 1):** houses in one evenly spaced row read as a fence
+  of boxes (rules.md). Both rounds' fixes were builder code (the `windows` type was new), not JSON.
+- **Motion:** rain + river ripples (`nightRepeat(…, 3)`), river flow, fog drift. **Cycle:** 72 f / 6 s.
+  **Budget:** 0.85% (calm).
+
 ## Choosing
 | brief has | start from |
 |---|---|
