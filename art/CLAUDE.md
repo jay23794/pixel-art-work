@@ -13,6 +13,8 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   dots on the water, never as boat shapes. Still no piers, vehicles or characters.
 - **Exception: `beach_night`** may have one starfish lying on the dune (requested). No palm or
   other objects.
+- **Exception: `lake_night`** may have one small wooden jetty and one lamp post on it (simple
+  shapes, requested). No boats, buildings or figures.
 
 ## Times of day
 - Every study is **dusk + night only**. Sunrise and day are parked (their palettes and skies exist

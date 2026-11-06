@@ -53,6 +53,18 @@ details. All are 360×640, 12 fps. Motion budgets are what `reel.sh` measured.
 - **Motion:** waves break and wash up (main), clouds stream, grass bends in gusts, sand blows,
   twinkle n 8. **Cycle:** 48 f / 4 s. **Budget:** 4.56% (dramatic).
 
+## lake_night — `studies/lake_night.px.js` (made with this skill, 4 rounds)
+- **Modules:** nightSky (overcast, no stars, moon's lower half behind cloud), 2 ranges from
+  `ridgeProfile`, flat still lake, `fog` drift (mist), `reflections` (the lamp, 3 columns),
+  `ripples` light + ring, jetty + lamp post (exception), `lights` (1 point + deck pool), `rain`.
+- **Settings:** horizon = shore 330; moon (272, 140), clouds 0.8 at (262, 166); lamp (96, 400) on
+  the deck (y 470); mist top shore + 4, height 30, role `"L"`, `period: 180, drift: 90, dir: -1`;
+  rain density 0.3, angle 0, ground 560; ring ripples cell [36, 14], rmax 9, keys `"hfF"`.
+- **Accent:** warm (the lamp). **Focal:** the lamp and its broken warm column, left third.
+- **Motion:** mist drifts left (1.25 px/frame), drizzle and ripples (`nightRepeat(…, 3)`),
+  reflection shimmer; the lamp is steady. **Cycle:** 72 f / 6 s (12 s reel = 2 cycles).
+  **Budget:** 0.80% (peaceful).
+
 ## Choosing
 | brief has | start from |
 |---|---|
@@ -62,4 +74,4 @@ details. All are 360×640, 12 fps. Motion budgets are what `reel.sh` measured.
 | dense trees, light through a gap, small lights | jungle |
 | far lights across water, a frame/view | harbour |
 | waves, wind, shore | beach |
-| a lake / still water with a near light | sea (water) + harbour (reflections) + mountains (backdrop) |
+| a lake / still water with a near light | lake_night |
