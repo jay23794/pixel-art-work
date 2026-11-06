@@ -54,6 +54,8 @@ Helpers: `lightRings(c, K, o, lvl, chain)`, `lightPool`, `litWindow`, `nightDisc
 | `moon: { x, y1, keys }` | glitter under the moon; keys `["N", "N"]` quiet, `["n", "N"]` brighter | glitter and a city column on the same x |
 | `boats: [[x, y, v]]` | 0–4 light dots | |
 Length ≈ 10 + 60·(v − 0.6) px; dashes 1–3 px with gaps, dimming one chain step at a time.
+Moon glitter runs straight down from `moon.x`; on a winding river wrap it in pxl's
+`clip(inRiver, function (c) { refl(c, phase) })` so it only shows where the river passes under the moon.
 
 ## City — `night_city.px.js`
 `cityLights({ shore, ridge, w, downtown, streets, houses, roads, towers, shops, quay, keys, flicker })` → `fn(c, phase|null)`, `fn.lights`.
@@ -62,7 +64,8 @@ Bad: no downtown peak (uniform carpet), towers > 14 px wide (read as objects), `
 
 ## Fireflies — `night_fireflies.px.js`
 `fireflies({ count, near, far, path, keys, halo, seed })` → item (loops only).
-Good: count 6–14, `keys { core: "4", ring: "3" }` with warm, near area over the focal clearing.
+Good: count 6–14, `keys { core: "4", ring: "3" }` with warm, near area over the focal clearing;
+areas computed from the terrain they belong to (a bank: `[bankX − w, y, w, h]`).
 Bad: > 20 (reads as sparks), with silver/neon accent (wrong colour).
 
 ## Rain — `night_rain.px.js`

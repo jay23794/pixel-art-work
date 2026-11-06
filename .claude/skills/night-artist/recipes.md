@@ -65,6 +65,17 @@ details. All are 360×640, 12 fps. Motion budgets are what `reel.sh` measured.
   reflection shimmer; the lamp is steady. **Cycle:** 72 f / 6 s (12 s reel = 2 cycles).
   **Budget:** 0.80% (peaceful).
 
+## valley_night — `studies/valley_night.px.js` (made with this skill, 3 rounds)
+- **Modules:** nightSky (low crescent in a notch, ring halo, stars density 1.5), far range with a
+  notch, `fog` drift, mid ranges, teal meadow, near slopes (V valley), a winding river (sky ramp
+  `Ddu`, light lines flowing), `reflections` moon glitter clipped to the river, bank grass,
+  `fireflies` (8, over the bank grass), `meteor` (once per loop).
+- **Settings:** horizon 300; moon (192, 236), crescent (7, −5), `glow: { rings: [2.5, 5.5] }`;
+  fog top 296, height 36, role `"C"`, drift 90; meteor (40, 96) → (200, 176), dur 8, at 68.
+- **Accent:** warm (fireflies). **Focal:** the crescent in the notch, the river leading up to it.
+- **Motion:** river lines flow (0.4 px/frame), fog drifts, fireflies (`nightRepeat(…, 2)`),
+  meteor, twinkle n 16. **Cycle:** 72 f / 6 s. **Budget:** 0.25% (calm).
+
 ## Choosing
 | brief has | start from |
 |---|---|
@@ -75,3 +86,4 @@ details. All are 360×640, 12 fps. Motion budgets are what `reel.sh` measured.
 | far lights across water, a frame/view | harbour |
 | waves, wind, shore | beach |
 | a lake / still water with a near light | lake_night |
+| a river, a valley, fireflies | valley_night |

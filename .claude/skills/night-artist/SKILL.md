@@ -1,13 +1,18 @@
 ---
 name: night-artist
-description: Make a new pixel-art NIGHT scene for PixelForge (art/ studies, 360×640, pxl) in 1–2 rounds from a short brief, using the night kit in art/lib/ (nightPalette, nightSky, lights, reflections, cityLights, fireflies, rain, ripples, fog, lightning, meteor). Use first for any night scene, night variant, or night weather/light effect — before writing any drawing code. Covers the workflow, the kit's options, a recipe per approved night scene, moods, and the night lighting rules.
+description: Make a new pixel-art NIGHT scene for PixelForge (art/ studies, 360×640, pxl) in ≤ 3 rounds (≤ 2 for a variation) from a short brief, using the night kit in art/lib/ (nightPalette, nightSky, lights, reflections, cityLights, fireflies, rain, ripples, fog, lightning, meteor). Use first for any night scene, night variant, or night weather/light effect — before writing any drawing code. Covers the workflow, the kit's options, a recipe per approved night scene, moods, and the night lighting rules.
 ---
 
 # Night artist
 
 You make night scenes by **composing the night kit**, not by inventing new drawing code. Every
 approved night scene (mountains, desert, sea, jungle, harbour, beach) is built from the same
-modules; a new scene should be too. Aim: an approvable still in **1–2 rounds**.
+modules; a new scene should be too.
+
+**Targets** (rounds for the still; a round = one render you critique):
+- **new scene type** (no recipe has its terrain/subject): **≤ 3 rounds**;
+- **variation of an existing recipe** (other weather, accent, light, time of the loop): **≤ 2 rounds**.
+Log the rounds used in the recipe entry.
 
 Read, in this order, only what the step needs:
 - `rules.md` — the night lighting rules and every lesson so far. **Read it first, every time.**
@@ -27,29 +32,39 @@ Project rules still apply: `CLAUDE.md`, `art/CLAUDE.md`, `docs/art-direction.md`
 3. **Choose the palette:** `nightPalette(accent)` = night_base + **one** accent.
    `warm` for lamps, windows, fireflies, fire; `neon` for signs; `silver` when the moon is the
    only light (halo, sheen, lightning). Accents only on light sources (rules.md).
-4. **Compose with the kit** (`kit.md`), back to front:
+4. **Pre-flight (before round 1, no rendering yet).** Write a short plan in the study header:
+   - focal point (what, where, which third) · accent (which sources use it)
+   - depth planes, back to front (each with its keys: far = sky/haze, mid = violet, near = full contrast)
+   - fog colour (role) and where it sits relative to the focal point
+   - where living things go (fireflies, grass) and the terrain function they're computed from
+   - motion: what moves, loop length, motion budget target from `moods.md`
+   Then check it **line by line against `rules.md`** (every hard rule and every lesson). Fix the plan,
+   not the render. Only then render round 1. Log in the header which rules the pre-flight caught
+   (`Pre-flight caught: …`, or `none`), and add them to the recipe entry. A rule the pre-flight
+   missed that cost a round goes into `rules.md` as a lesson.
+5. **Compose with the kit** (`kit.md`), back to front:
    `nightSky` → far terrain (haze/sky keys, low contrast) → mid terrain → water + `reflections`
    → `fog` → near terrain + objects → `lights` → weather (`rain`, `ripples`) → foreground.
    Draw terrain yourself with `ridge.px.js` / `dither.px.js` and **night keys via `nightKeys()`**
    (never literal letters in lib code). Moon = key light: put it on the side the faces are lit
    from, and light rims/edges toward it.
-5. **Render the still:**
+6. **Render the still:**
    `node .claude/skills/pxl-pixel-art/bin/pxl.js build art/studies/<study>.px.js --out art/out --only <study>`
    then read `art/out/_preview/<study>.png` (zoom into crops with a quick pngjs script when
    detail matters: 2–4× crops of the focal point, the light, the water).
-6. **Critique** with the `pixel-art` skill and the checklist in `docs/art-direction.md` (1–8),
+7. **Critique** with the `pixel-art` skill and the checklist in `docs/art-direction.md` (1–8),
    plus the night checks in `rules.md`: one key light, one accent, focal point = brightest value
    contrast, nothing key in the safe zones (top 84, bottom 117, sides 20), clusters ≥ 2×2,
    regular stairs, no pillow shading, dithering only on large gradients.
-7. **Fix** the worst problem first, re-render. Stop when the checklist passes. Count rounds:
-   a round = one render you critique. Target ≤ 2.
-8. **Loop:** add the `anim` (24 f / 2 s default; 48 f for rare events; ≤ 72 f — pxl's cap). Moving
+8. **Fix** the worst problem first, re-render. Stop when the checklist passes. Count rounds:
+   a round = one render you critique. Targets above (≤ 3 new type, ≤ 2 variation).
+9. **Loop:** add the `anim` (24 f / 2 s default; 48 f for rare events; ≤ 72 f — pxl's cap). Moving
    modules read `c.phase`; long cycles (fog `drift`) wrap fast modules in `nightRepeat(item, n)`.
    Define `_<anim>_static` (what never moves: moon disk, terrain, objects).
-9. **Checks:** `art/scripts/reel.sh <study> <seconds> [--asset <anim>]` (palette, static check,
+10. **Checks:** `art/scripts/reel.sh <study> <seconds> [--asset <anim>]` (palette, static check,
    motion budget) and `art/scripts/reel.sh <study> --still`. Compare the motion budget with the
    mood's target (`moods.md`); calm 0.1–2%, dramatic ≤ ~5%.
-10. **Present** the 3× still (`art/out/reels/<study>.png`), the preview GIF
+11. **Present** the 3× still (`art/out/reels/<study>.png`), the preview GIF
     (`art/out/_preview/<anim>.gif`), rounds used, motion budget. Commit only after approval.
 
 ## Skeleton (plain night scene)

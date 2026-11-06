@@ -86,3 +86,18 @@ Hard rules first, then lessons learned the hard way (each one cost a round).
 - Keep a light pool inside its surface: `ry` 1 on a 2 px deck, `rx` ≤ the deck's reach.
 - Rain + ripples + drifting mist land around 1% at rain density 0.4: for lonely/peaceful use
   density 0.3 and ring cells ~[36, 14] (0.8%).
+- Mist speed: `drift: 90` (1.25 px/frame) reads as fog; 2.5 px/frame reads as sliding.
+
+## Lessons from valley_night (second scene: 3 rounds for the still)
+- **Fog behind a focal point is always quiet** — solid band `C` or `L`, never the default `c`,
+  unless the fog *is* the subject. (Repeated in round 1 despite the lake lesson: check this first.)
+- **Below the horizon needs planes too:** a flat field from the horizon to the bottom reads as a
+  void. A valley = meadow + near slopes closing in from both sides (their own ridge, high at the
+  edges, low at the river) + the river carving through (round 1).
+- **Place living things from the same geometry they belong to:** compute bank/edge positions from
+  the river (or terrain) function and give `fireflies` areas that hug them; an eyeballed area put
+  them on bare slope (round 2).
+- **Keep water effects on the water** with `clip(region, item)`: `clip(inRiver, glitter)`.
+- **Moving water should move:** a river's light lines flowing toward the viewer (0.4 px/frame,
+  loop-safe shift of a whole number of line spacings) is the calmest motion that reads as alive.
+  Fireflies + meteor + twinkle alone measured 0.08% — too still for "magical".
