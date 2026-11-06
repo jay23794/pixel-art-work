@@ -14,8 +14,8 @@
 #
 # Every run checks that every pixel of every frame is a palette colour (fails otherwise), and, if
 # the study defines a part _<asset>_static, that its opaque pixels never change (fails otherwise).
-# Loops also get a motion-budget report: % of screen pixels changing per frame (target 0.4–2% for
-# calm scenes; reported, never fails).
+# Loops also get a motion-budget report: % of screen pixels changing per frame (targets in
+# art/CLAUDE.md; reported, never fails).
 set -euo pipefail
 
 usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }

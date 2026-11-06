@@ -87,7 +87,20 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
     seeded start); `lightBeam(level, { lift })` (moonlight shafts in the cool beam ramp).
   - `lib/night_city.px.js` `cityLights(opts)`, `lib/night_reflections.px.js` `reflections(opts)`
     (from harbour_night), `lib/night_fireflies.px.js` `fireflies(opts)` (from jungle_night).
-  - `studies/night_kit.px.js` is a test sheet of `lights()` under each accent, not a scene.
+  - Weather and sky events (items reading `c.phase`, loop-safe):
+    `lib/night_rain.px.js` `rain({ angle, density, wind, ground })` (4 depths, slanted space:
+    angle snaps to 1/n for regular runs); `lib/night_ripples.px.js` `ripples({ area, mask, mode })`
+    (`"ring"` stepped rings that fade into dashes; `"light"` breaks up reflections);
+    `lib/night_fog.px.js` `fog({ top, height, bands, role, density, amp, sway })` (cool veils +
+    a solid bottom band; sway + morph, since a one-way drift can't loop at fog speed);
+    `lib/night_lightning.px.js` `lightning({ frames, at, horizon, bolt })` (one strike per loop,
+    `NIGHT_LIGHTNING_PATTERN`: sky +1 step on 2 frames, bolt, cooling channel, return stroke);
+    `lib/night_meteor.px.js` `meteor({ from, to, frames, at, dur })` (once per loop; use a 2:1 or
+    1:1 path for regular runs). `nightCool(K)` (night_lights) is the cool-step lookup shared by
+    `lightBeam` and `fog`.
+  - `studies/night_kit.px.js` (lights) and `studies/night_tests/*.px.js` (one per weather module,
+    assets `test_<name>` / `test_<name>_loop`) are module tests, not scenes. Reel them with
+    `art/scripts/reel.sh night_tests/<name> --asset test_<name>_loop`.
   - `node art/scripts/night-sheet.mjs` checks the palette; `node art/scripts/night-port-check.mjs`
     compares ported renders with `art/out/night/v1` pixel by pixel through `NIGHT_LEGACY`.
 - `.claude/skills/pixelfx` (patch-gg/pixelfx, MIT) is installed as a reference for effect
@@ -111,8 +124,10 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   so (`beach_night_loop`: 48 frames, 4 s).
 - pxl rounds 1000/12 ms to 83 ms, so its GIF previews loop in 1992 ms. `reel.sh` samples by frame
   count at the nominal fps, so each cycle in the MP4 lasts exactly 2.000 s.
-- `reel.sh` reports a **motion budget** for loops: % of screen pixels changing per frame. Calm
-  scenes aim for 0.4–2%; it is reported, never enforced.
+- `reel.sh` reports a **motion budget** for loops: % of screen pixels changing per frame
+  (reported, never enforced). Targets: **calm scenes 0.1–2%**; **dramatic scenes** (breaking
+  waves, storms) **up to ~5%**. Near 0% is fine when a scene is meant to be subtle
+  (`mountains_night`, `desert_night`: only star twinkle). Small values print with more decimals.
 - Reel length is a whole number of cycles (default 10 s): `art/scripts/reel.sh <study> [seconds]`.
   The cycle is the anim's frames / fps; the script refuses other lengths. Without `--asset`, the
   MP4 is `<study>_loop` if the study has one, else `<study>`, else every anim in it; `--still`

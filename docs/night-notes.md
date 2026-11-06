@@ -175,9 +175,9 @@ the shapes and the timing, and drop the light buffer. Every glow becomes a stepp
 Done (step 2, `art/lib/`, palette-locked, pure functions of `phase`; see `art/CLAUDE.md`):
 `nightPalette` · `nightSky` · `lights` (5-ring glow, pools, windows, `nightFlicker`, `lightBeam`) ·
 `cityLights` · `reflections` · `fireflies`; motion budget in `reel.sh`.
-Still to do: `rain(opts)` (3–4 depths, skewed space, splashes) · `ripples(opts)` · `fog(opts)`
-(warped fbm → haze keys + rim) · star counts from area + big-star stamps · `bolt(opts)` (midpoint
-displacement + level inking).
+Done (step 3): `rain` · `ripples` (ring and light modes) · `fog` · `lightning` · `meteor`, each
+with a test in `art/studies/night_tests/`.
+Still to do: rain splashes · star counts from area + big-star stamps.
 
 ## The night palette system (step 1)
 

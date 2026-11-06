@@ -8,8 +8,9 @@
 // Static check: if the study defines a part `_<asset>_static` (same size), every opaque pixel of it
 // marks a pixel that must be identical in every frame (moon, trunk, dunes...); any change fails.
 // Motion budget (loops): the share of screen pixels that change from one frame to the next
-// (last → first included), mean / max over the loop. Reported against the calm-scene target
-// (MOTION_TARGET); never fails. See docs/night-notes.md (nightcity measured ~0.4%).
+// (last → first included), mean / min / max over the loop. Reported against the targets in
+// art/CLAUDE.md (calm 0.1–2%, dramatic up to ~5%); never fails. Small values get more decimals so
+// "0.00%" never hides real motion. See docs/night-notes.md (nightcity measured ~0.4%).
 // Exit codes: 0 ok, 2 usage/build error, 3 palette check failed, 4 length not whole cycles,
 // 5 static check failed.
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -109,7 +110,9 @@ if (frames.length > 1 && p.assets.get(maskName)) {
 }
 
 // ---------------------------------------------------------------- motion budget
-const MOTION_TARGET = [0.4, 2]; // % of the screen changing per frame, calm scenes
+const MOTION_CALM = [0.1, 2], MOTION_DRAMATIC = 5; // % of the screen changing per frame
+// 2 decimals from 1%, 4 below 0.1%: a few moving pixels still show.
+const pctFmt = (v) => (v === 0 ? "0" : v.toFixed(v >= 1 ? 2 : v >= 0.1 ? 3 : 4)) + "%";
 if (frames.length > 1) {
   const pct = frames.map((f, fi) => {
     const a = f.img.data, b = frames[(fi + 1) % frames.length].img.data;
@@ -118,9 +121,10 @@ if (frames.length > 1) {
     return (100 * n) / a.length;
   });
   const mean = pct.reduce((s, v) => s + v, 0) / pct.length, max = Math.max(...pct), min = Math.min(...pct);
-  const verdict = mean < MOTION_TARGET[0] ? "below target (very still)" : mean > MOTION_TARGET[1] ? "above target (busy)" : "within target";
-  console.log(`motion budget: ${mean.toFixed(2)}% of pixels change per frame (min ${min.toFixed(2)}%, max ${max.toFixed(2)}%); ` +
-    `calm-scene target ${MOTION_TARGET[0]}–${MOTION_TARGET[1]}%: ${verdict}`);
+  const verdict = mean < MOTION_CALM[0] ? "below calm (subtle; fine if intended)"
+    : mean <= MOTION_CALM[1] ? "calm" : mean <= MOTION_DRAMATIC ? "dramatic (waves, storms)" : "above dramatic (busy)";
+  console.log(`motion budget: ${pctFmt(mean)} of pixels change per frame (min ${pctFmt(min)}, max ${pctFmt(max)}); ` +
+    `calm ${MOTION_CALM[0]}–${MOTION_CALM[1]}%, dramatic ≤ ~${MOTION_DRAMATIC}%: ${verdict}`);
 }
 
 if (first) writeFileSync(first, encodePng(frames[0].img));

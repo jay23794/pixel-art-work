@@ -111,21 +111,39 @@ function nightFlicker(id, p, o) {
  */
 var NIGHT_BEAM_RAMP = "UDLCNclno"
 function lightBeam(level, o) {
-  var K = nightKeys(), S = K.state, ramp = NIGHT_BEAM_RAMP.split(""), lift = (o && o.lift) || [0, 1, 2]
+  var K = nightKeys(), lift = (o && o.lift) || [0, 1, 2], cool = nightCool(K)
   return function (c) {
-    var L = ramp.map(function (k) { return nightLightness(S.hex[k]) }), lOf = new Map()
-    Object.keys(S.hex).forEach(function (nk) { lOf.set(c.color(S.keys[nk]) >>> 0, nightLightness(S.hex[nk])) })
-    if (S.remap) Object.keys(S.remap).forEach(function (o) { lOf.set(c.color(o) >>> 0, nightLightness(S.hex[S.remap[o]])) })
+    var step = cool(c)
     for (var y = 0; y < c.h; y++)
       for (var x = 0; x < c.w; x++) {
         var n = level(x, y, c)
         if (!n) continue
-        var l = lOf.get(c.get(x, y) >>> 0)
-        if (l === undefined) continue
-        var best = 0
-        for (var i = 1; i < L.length; i++) if (Math.abs(L[i] - l) < Math.abs(L[best] - l)) best = i
-        c.px(x, y, K(ramp[Math.min(ramp.length - 1, best + lift[Math.min(n, lift.length - 1)])]))
+        var k = step(c.get(x, y), lift[Math.min(n, lift.length - 1)])
+        if (k) c.px(x, y, k)
       }
+  }
+}
+
+/**
+ * Cool-step lookup for beams and fog: nightCool(K)(c) gives step(colour, n) → the key n steps above
+ * the NIGHT_BEAM_RAMP colour nearest the colour's lightness (null for a colour not in the palette).
+ * Old colours (legacy mode) are read as their night colour.
+ */
+function nightCool(K) {
+  var S = K.state, ramp = NIGHT_BEAM_RAMP.split(""), L = ramp.map(function (k) { return nightLightness(S.hex[k]) })
+  return function (c) {
+    var base = new Map()
+    function add(col, hex) {
+      var l = nightLightness(hex), best = 0
+      for (var i = 1; i < L.length; i++) if (Math.abs(L[i] - l) < Math.abs(L[best] - l)) best = i
+      base.set(col >>> 0, best)
+    }
+    Object.keys(S.hex).forEach(function (nk) { add(c.color(S.keys[nk]), S.hex[nk]) })
+    if (S.remap) Object.keys(S.remap).forEach(function (o) { add(c.color(o), S.hex[S.remap[o]]) })
+    return function (col, n) {
+      var b = base.get(col >>> 0)
+      return b === undefined ? null : K(ramp[Math.min(ramp.length - 1, b + n)])
+    }
   }
 }
 
