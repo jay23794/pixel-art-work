@@ -170,14 +170,14 @@ the shapes and the timing, and drop the light buffer. Every glow becomes a stepp
 
 ---
 
-## What this means for the night artist (next steps, not done yet)
+## What this means for the night artist
 
-Modules (in `art/lib/`, palette-locked, pure functions of `phase`):
-`nightPalette(accent)` (done, below) · `lightRings(x, y, chain, radii)` (stepped glow) · `flicker`
-(seeded per-light schedule, ≤ 1 event per loop) · `rain(opts)` (3–4 depths, skewed space, splashes)
-· `ripples(opts)` · `fog(opts)` (warped fbm → haze keys + rim) · `fireflies(opts)` · `stars(opts)`
-(area-based counts + big-star stamps) · `bolt(opts)` (midpoint displacement + level inking).
-Plus a motion-budget check in `reel.sh` (share of pixels changing per frame).
+Done (step 2, `art/lib/`, palette-locked, pure functions of `phase`; see `art/CLAUDE.md`):
+`nightPalette` · `nightSky` · `lights` (5-ring glow, pools, windows, `nightFlicker`, `lightBeam`) ·
+`cityLights` · `reflections` · `fireflies`; motion budget in `reel.sh`.
+Still to do: `rain(opts)` (3–4 depths, skewed space, splashes) · `ripples(opts)` · `fog(opts)`
+(warped fbm → haze keys + rim) · star counts from area + big-star stamps · `bolt(opts)` (midpoint
+displacement + level inking).
 
 ## The night palette system (step 1)
 
@@ -193,6 +193,9 @@ Plus a motion-budget check in `reel.sh` (share of pixels changing per frame).
 | land | `B R r b t` | rock, dark earth, silhouettes (`B` = darkest) |
 | ground | `A S s a` | sand, soil, paths (the base's warmest ramp) |
 | accent | `1 2 3 4 5` | `warm` (lamps, windows, fireflies) · `neon` (1–3 pink, 4–5 cyan) · `silver` (moon halo, sheen, lightning) |
+
+**Accents are for light sources only** and the light they throw. Objects and materials use base
+colours even when they are colourful by day (beach_night's starfish: ground `S s a`, not warm).
 
 Swatches, glow chains and the mapping of every existing night scene:
 `node art/scripts/night-sheet.mjs` → `art/out/night/index.html`.

@@ -1,5 +1,5 @@
-// desert — a wide desert: desert_dusk, desert_night (pure palette swap + skyLayer("night"), moon on
-// the sun's side).
+// desert — a wide desert: desert_dusk, desert_night (night kit: nightPalette("silver", "night") +
+// nightSky, the same drawing remapped to night_base; moon on the sun's side).
 //
 // Light: the dusk sun of skyLayer("dusk"), sinking into the heat haze at x 252. Faces turned
 // towards it are lit (the mesa's right side, dune faces on the sun's side of each crest); faces
@@ -11,6 +11,7 @@ include("../palettes.px.js")
 include("../lib/noise.px.js")
 include("../lib/ridge.px.js")
 include("../lib/sky.px.js")
+include("../lib/night_sky.px.js")
 
 var W = 360, H = 640
 var HORIZON = 330
@@ -321,21 +322,23 @@ var SKY_MOTION = { dusk: { clouds: 1 }, night: { twinkle: { n: 7, maxY: 280 } } 
  * drawing (night = pure palette swap, lit from the dusk sun's side where the moon now stands).
  */
 function desertScene(time) {
-  palette(time)
+  var P = nightOrPalette(time, "silver", "night")
   scene("_desert_land_" + time, { w: W, h: H }, ...landItems())
   scene("desert_" + time, { w: W, h: H, bg: "U" },
-    ...skyLayer(time, SKY_OPTS[time]),
+    ...P.sky(SKY_OPTS[time]),
     farMesas,
     farPlain,
     stamp("_desert_land_" + time, 0, 0),
+    ...P.end,
   )
   // Seamless loop: 24 frames at 12 fps (2 s). Mesa, dunes and foreground are the stamped part.
   anim("desert_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
-    ...skyLayer(time, Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+    ...P.sky(Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
     farMesas,
     function (c) { farPlain(c, time === "dusk" ? c.phase : undefined) },
     function (c) { c.stamp("_desert_land_" + time, 0, 0) },
-    function (c) { if (time === "dusk") crestGrains(c) })
+    function (c) { if (time === "dusk") crestGrains(c) },
+    ...P.end)
 }
 
 desertScene("dusk")

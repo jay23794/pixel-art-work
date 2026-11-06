@@ -1,5 +1,6 @@
-// sea — a calm open sea seen from a beach: sea_dusk, sea_night (pure palette swap +
-// skyLayer("night"), moon low on the sun's side so it throws the same reflection column).
+// sea — a calm open sea seen from a beach: sea_dusk, sea_night (night kit: nightPalette("silver",
+// "night") + nightSky, the same drawing remapped to night_base; moon low on the sun's side so it
+// throws the same reflection column).
 //
 // Light: the dusk sun of skyLayer("dusk"), half-sunk into a flat horizon at x 252. Wave tops catch
 // its light (lit top edge), their undersides fall into shadow; its reflection runs straight down
@@ -11,6 +12,7 @@ include("../palettes.px.js")
 include("../lib/noise.px.js")
 include("../lib/dither.px.js")
 include("../lib/sky.px.js")
+include("../lib/night_sky.px.js")
 
 var W = 360, H = 640
 var HORIZON = 286
@@ -289,16 +291,18 @@ function seaItems(animate) {
 var SKY_MOTION = { dusk: { clouds: 1 }, night: { twinkle: { n: 7, maxY: 190 } } }
 
 function seaScene(time) {
-  palette(time)
+  var P = nightOrPalette(time, "silver", "night")
   scene("sea_" + time, { w: W, h: H, bg: "U" },
-    ...skyLayer(time, SKY_OPTS[time]),
+    ...P.sky(SKY_OPTS[time]),
     ...seaItems(false),
+    ...P.end,
   )
   // Seamless loop: 24 frames at 12 fps (2 s). The reflection shimmers (main motion), wave rows
   // bob 1 px in turn, the foam advances and pulls back with the wet edge; rocks and dry sand rest.
   anim("sea_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
-    ...skyLayer(time, Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
-    ...seaItems(true))
+    ...P.sky(Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+    ...seaItems(true),
+    ...P.end)
 }
 
 seaScene("dusk")

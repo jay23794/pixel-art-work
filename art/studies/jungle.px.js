@@ -1,5 +1,7 @@
-// jungle — looking into a deep jungle: jungle_dusk, jungle_night (pure palette swap +
-// skyLayer("night"), the moon behind the same canopy gap).
+// jungle — looking into a deep jungle: jungle_dusk, jungle_night (night kit: the same drawing under
+// nightPalette("warm", "jungle_night") + nightSky, remapped to night_base; the moon behind the same
+// canopy gap. At night the shafts are moonlight (kit lightBeam: haze/moon colours, not the leaves'
+// teal) and the fireflies are the kit's, in the warm accent).
 //
 // Light: the low dusk sun behind a gap in the canopy, upper right (SUN). Its light comes down
 // through the gap as stepped shafts onto one clearing (the focal point); leaf clusters and trunks
@@ -11,6 +13,8 @@
 include("../palettes.px.js")
 include("../lib/noise.px.js")
 include("../lib/sky.px.js")
+include("../lib/night_sky.px.js")
+include("../lib/night_fireflies.px.js")
 
 var W = 360, H = 640
 // The sun stands in the canopy gap; clouds are pushed off-canvas (the canopy hides the sky).
@@ -243,33 +247,7 @@ function motes(c, m) {
   }
 }
 
-/**
- * Fireflies (night loop): small warm glowing dots on smooth looping paths (Lissajous, 1:2) around
- * the clearing and the mid layer, blinking at their own phases. Each is a stepped glow: a warm
- * yellow core (O), an amber ring (N) — both from the jungle_night palette variant — and an outer
- * ring of neighbours one ramp step lighter (in palette, no blur).
- */
-var FIREFLIES = (function () {
-  var out = []
-  for (var i = 0; i < 10; i++) {
-    var near = i < 5
-    out.push({
-      cx: near ? 112 + hash2(96, i, 0) * 104 : 80 + hash2(96, i, 0) * 210,
-      cy: near ? 400 + hash2(96, i, 1) * 56 : 286 + hash2(96, i, 1) * 100,
-      ax: 8 + hash2(96, i, 2) * 12, ay: 4 + hash2(96, i, 3) * 6, o1: hash2(96, i, 4), o2: hash2(96, i, 5), ob: i / 10,
-    })
-  }
-  return out
-})()
-function fireflies(c, m) {
-  FIREFLIES.forEach(function (f) {
-    if (Math.sin(2 * Math.PI * (m.p + f.ob)) < -0.25) return // blinking off
-    var x = Math.round(f.cx + f.ax * Math.sin(2 * Math.PI * (m.p + f.o1))), y = Math.round(f.cy + f.ay * Math.sin(2 * Math.PI * (2 * m.p + f.o2)))
-    c.light([x, y, 2.6], 1)
-    c.px(x - 1, y, "N"); c.px(x + 1, y, "N"); c.px(x, y - 1, "N"); c.px(x, y + 1, "N")
-    c.px(x, y, "O")
-  })
-}
+// Fireflies (night loop): the kit's fireflies() with its defaults (= this scene's), see jungleScene.
 
 /** Near canopy: a dense mass along the top with the gap cut out (texture from near clusters). */
 function nearCanopy(c) {
@@ -398,31 +376,40 @@ function defineLayers(time) {
 }
 
 function jungleScene(time) {
-  // Night uses its own variant: the night palette plus two warm firefly slots (see palettes.px.js).
-  palette(time === "night" ? "jungle_night" : time)
+  // Night: the old jungle_night keys for the drawing (remapped at the end) + the warm accent.
+  var P = nightOrPalette(time, "warm", "jungle_night"), night = time === "night"
   defineParts(time)
   defineLayers(time)
   var t = "_" + time
+  // Shafts: at dusk the sun's light steps colours up their own ramps; at night moonlight redraws
+  // them in the cool beam ramp: the edges only turn cool, the core one step brighter (the hue change
+  // from teal to silver already reads as light).
+  var BEAM = { lift: [0, 0, 1] }
+  var shaftsStill = night ? lightBeam(function (x, y) { return shaftAt(x, y) }, BEAM) : shafts
+  var shaftsLoop = night ? lightBeam(function (x, y, c) { return shaftAt(x, y, motion(c)) }, BEAM) : function (c) { shafts(c, motion(c)) }
+  var flies = night ? fireflies() : null
   scene("jungle_" + time, { w: W, h: H, bg: "U" },
-    ...skyLayer(time, SKY_OPTS[time]),
+    ...P.sky(SKY_OPTS[time]),
     stamp("_far" + t, 0, 0), stamp("_far2" + t, 0, 0), stamp("_midfar" + t, 0, 0),
     fog,
     stamp("_ground" + t, 0, 0), stamp("_under" + t, 0, 0), stamp("_mid" + t, 0, 0),
-    shafts,
+    shaftsStill,
     stamp("_near" + t, 0, 0),
     vinesFor(time),
+    ...P.end,
   )
   // Seamless loop: 24 frames at 12 fps (2 s). Fog drifts, shaft edges shimmer, vines sway; dusk:
   // dust motes in the shafts; night: fireflies (the main motion). Trunks, ground, canopy still.
   anim("jungle_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
-    ...skyLayer(time, SKY_OPTS[time]),
+    ...P.sky(SKY_OPTS[time]),
     stamp("_far" + t, 0, 0), stamp("_far2" + t, 0, 0), stamp("_midfar" + t, 0, 0),
     function (c) { fog(c, motion(c)) },
     stamp("_ground" + t, 0, 0), stamp("_under" + t, 0, 0), stamp("_mid" + t, 0, 0),
-    function (c) { shafts(c, motion(c)) },
-    function (c) { if (time === "dusk") motes(c, motion(c)); else fireflies(c, motion(c)) },
+    shaftsLoop,
+    function (c) { if (time === "dusk") motes(c, motion(c)); else flies(c) },
     stamp("_near" + t, 0, 0),
-    vinesFor(time, true))
+    vinesFor(time, true),
+    ...P.end)
 }
 
 jungleScene("dusk")

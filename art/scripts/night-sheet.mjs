@@ -18,7 +18,7 @@ const MIN_DE = 0.035 // OKLab distance below which two palette colours read as o
 
 // ---- load both palette files in a stub pxl context
 const load = (file) => {
-  const ctx = { use() {}, pal() {}, ramps() {} }
+  const ctx = { use() {}, pal() {}, ramps() {}, include() {} }
   vm.createContext(ctx)
   vm.runInContext(fs.readFileSync(path.join(ART, file), "utf8"), ctx)
   return ctx

@@ -183,25 +183,30 @@ function skySunCuts(c, s) {
 }
 
 /** Full moon: pale disk with darker maria (clusters from 2D noise), in the moon ramp. */
-function skyMoonDisk(c, m) {
+function skyMoonDisk(c, m, R) {
+  R = R || skyKeysAsIs
   for (var dy = -m.r; dy <= m.r; dy++)
     for (var dx = -m.r; dx <= m.r; dx++) {
       var d = Math.sqrt(dx * dx + dy * dy)
       if (d > m.r + 0.5) continue
       if (m.crescent && Math.hypot(dx - m.crescent.dx, dy - m.crescent.dy) <= m.r + 0.5) continue // the dark part
       var mare = fbm2(5, (dx + 40) / 9, (dy + 40) / 9, { octaves: 2 }) > 0.58
-      c.px(m.x + dx, m.y + dy, mare ? "n" : "o")
+      c.px(m.x + dx, m.y + dy, R(mare ? "n" : "o"))
     }
 }
 
 // ---------------------------------------------------------------- stars
+
+/** Default key translator for skyStars / skyMoonDisk (lib/night_sky.px.js passes its own). */
+function skyKeysAsIs(s) { return s }
 
 /**
  * Night stars, 3 sizes: 1 px (dim), 2×2 (medium), 3×3 plus (bright); a few bright ones get a
  * long cross sparkle. Density falls off from the top; none below `limit` (the lower third at the
  * reference horizon), none in the moon's glow.
  */
-function skyStars(c, moon, limit, twinkle, phase, maxY, density) {
+function skyStars(c, moon, limit, twinkle, phase, maxY, density, R) {
+  R = R || skyKeysAsIs
   var tw = 0
   for (var i = 0; i < 900; i++) {
     var x = 4 + Math.floor(hash2(71, i, 0) * (SKY_W - 8))
@@ -216,15 +221,15 @@ function skyStars(c, moon, limit, twinkle, phase, maxY, density) {
     if (twinkle && size >= 0.84 && y < twinkle.maxY && tw < twinkle.n) {
       var off = hash2(72, i, 0), dim = Math.sin(2 * Math.PI * (phase + off)) > 0.55
       tw++
-      if (dim) { c.px(x, y, "l"); continue }
+      if (dim) { c.px(x, y, R("l")); continue }
     }
-    if (size < 0.84) c.px(x, y, size < 0.5 ? "l" : "m")
-    else if (size < 0.96) c.rect(x, y, 2, 2, "n")
+    if (size < 0.84) c.px(x, y, R(size < 0.5 ? "l" : "m"))
+    else if (size < 0.96) c.rect(x, y, 2, 2, R("n"))
     else {
-      c.rect(x - 1, y, 3, 1, "o"); c.rect(x, y - 1, 1, 3, "o"); c.px(x, y, "w")
+      c.rect(x - 1, y, 3, 1, R("o")); c.rect(x, y - 1, 1, 3, R("o")); c.px(x, y, R("w"))
       if (size > 0.985) // cross sparkle
         for (var k = 2; k <= 4; k++) {
-          var key = k < 4 ? "n" : "m"
+          var key = R(k < 4 ? "n" : "m")
           c.px(x - k, y, key); c.px(x + k, y, key); c.px(x, y - k, key); c.px(x, y + k, key)
         }
     }

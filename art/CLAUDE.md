@@ -16,9 +16,10 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 - Every study is **dusk + night only**. Sunrise and day are parked (their palettes and skies exist
   but are not approved; don't use them).
 - Pattern (see `studies/mountains.px.js`): one `<study>Scene(time)` function draws everything;
-  `<study>_dusk` first, `<study>_night` only after dusk is approved, as a pure palette swap +
-  `skyLayer("night")`. Light comes from the dusk sun; at night put the moon on the sun's side
-  (`skyLayer` `moon` option) so the existing lighting stays correct.
+  `<study>_dusk` first, `<study>_night` only after dusk is approved, through the night kit:
+  `var P = nightOrPalette(time, accent, legacy)`, `...P.sky(opts)`, the same drawing, `...P.end`.
+  Light comes from the dusk sun; at night put the moon on the sun's side (the `moon` option) so
+  the existing lighting stays correct.
 
 ## Format and art direction
 - Canvas **360×640** for every scene. Output is 3× nearest-neighbour (1080×1920).
@@ -65,9 +66,28 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   per loop: rise, peel with a thick lip over a dark hollow, billowing whitewater that collapses
   into lace, spray downwind); `breakerWash(opts, phase)` gives the wash run-up 0..1. Techniques
   borrowed from pixelfx's wave-crash, kept hard-edged and palette-only. Used by `beach_night`.
-- `lib/night_palette.px.js`: `nightPalette(accent)` = night_base (27) + one accent (`warm`, `neon`,
-  `silver`; keys 1–5) = 32. New night scenes only; existing studies still use `palettes.px.js`.
-  `node art/scripts/night-sheet.mjs` checks it and maps the existing night scenes onto it.
+- **Night kit** (every night scene uses it; techniques in `docs/night-notes.md`):
+  - `lib/night_palette.px.js`: `nightPalette(accent)` = night_base (27) + one accent (`warm`,
+    `neon`, `silver`; keys 1–5) = 32. **Accents are for light sources only** (lamps, windows,
+    signs, fireflies, moon halo, lightning) and the light they throw; objects and materials use
+    base colours. Legacy mode `nightPalette(accent, "night" | "jungle_night" | "harbour_night" |
+    "beach_night")` keeps an old palette drawable (its keys, old colours) for ported studies; end
+    the old-key drawing with a `nightRemap()` item (old colour → night colour by `NIGHT_LEGACY`,
+    fails the build on anything else). Kit modules capture `nightKeys()` / `nightRoles()` at
+    definition time, so they work in both modes; never write night keys as literals in a lib.
+  - `lib/night_sky.px.js`: `nightSky(opts)` (gradient, stars, moon full/crescent, halo
+    `glow: { r, ramp }` or `{ rings }`, clouds `{ amount, x, y, scale, top }`, motion, layer),
+    `nightLight(opts)` = the moon `{ x, y, r }`, `nightOrPalette(time, accent, legacy)` for
+    dusk + night studies (`{ sky(opts), end }`).
+  - `lib/night_lights.px.js`: `lights({ points, pools, windows, flicker, animate })` — 5-ring
+    stepped glow (radii 1, 2, 4, 7, 11), light pools, lit windows (big panes dimmer);
+    `nightFlicker(id, phase, { rate: 0.03 })` (~3% of lights have one 2–6 frame burst per loop,
+    seeded start); `lightBeam(level, { lift })` (moonlight shafts in the cool beam ramp).
+  - `lib/night_city.px.js` `cityLights(opts)`, `lib/night_reflections.px.js` `reflections(opts)`
+    (from harbour_night), `lib/night_fireflies.px.js` `fireflies(opts)` (from jungle_night).
+  - `studies/night_kit.px.js` is a test sheet of `lights()` under each accent, not a scene.
+  - `node art/scripts/night-sheet.mjs` checks the palette; `node art/scripts/night-port-check.mjs`
+    compares ported renders with `art/out/night/v1` pixel by pixel through `NIGHT_LEGACY`.
 - `.claude/skills/pixelfx` (patch-gg/pixelfx, MIT) is installed as a reference for effect
   techniques (water, foam, spray, weather). Studies don't depend on it: borrow ideas, not code that
   paints with alpha or additive light.
@@ -89,6 +109,8 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   so (`beach_night_loop`: 48 frames, 4 s).
 - pxl rounds 1000/12 ms to 83 ms, so its GIF previews loop in 1992 ms. `reel.sh` samples by frame
   count at the nominal fps, so each cycle in the MP4 lasts exactly 2.000 s.
+- `reel.sh` reports a **motion budget** for loops: % of screen pixels changing per frame. Calm
+  scenes aim for 0.4–2%; it is reported, never enforced.
 - Reel length is a whole number of cycles (default 10 s): `art/scripts/reel.sh <study> [seconds]`.
   The cycle is the anim's frames / fps; the script refuses other lengths. Without `--asset`, the
   MP4 is `<study>_loop` if the study has one, else `<study>`, else every anim in it; `--still`

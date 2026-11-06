@@ -1,5 +1,5 @@
-// mountains — a layered range: mountains_dusk (approved), mountains_night (pure palette swap of
-// the same drawing + skyLayer("night"); no redrawing).
+// mountains — a layered range: mountains_dusk (approved), mountains_night (night kit: the same
+// drawing under nightPalette("silver", "night") + nightSky, remapped to night_base; no redrawing).
 //
 // Light: the low dusk sun of skyLayer("dusk"), set in a notch between the ranges (x 252).
 // Faces that turn towards the sun's side are lit, faces that turn away are in shadow; each face is
@@ -12,6 +12,7 @@ include("../palettes.px.js")
 include("../lib/noise.px.js")
 include("../lib/ridge.px.js")
 include("../lib/sky.px.js")
+include("../lib/night_sky.px.js")
 
 var W = 360, H = 640
 // horizon 282 puts the dusk sun at y 268, in the notch; the cumulus is halved and kept below the
@@ -462,16 +463,18 @@ function snowShimmer(c) {
  * loops don't redraw the mountains every frame. Stills stamp offset 0.
  */
 function mountainScene(time) {
-  palette(time)
+  var P = nightOrPalette(time, "silver", "night")
   for (var sh = -2; sh <= 2; sh++) scene("_land_" + time + "_" + sh, { w: W, h: H }, ...landItems(sh))
   scene("mountains_" + time, { w: W, h: H, bg: "U" },
-    ...skyLayer(time, SKY_OPTS[time]),
-    stamp("_land_" + time + "_0", 0, 0))
+    ...P.sky(SKY_OPTS[time]),
+    stamp("_land_" + time + "_0", 0, 0),
+    ...P.end)
   // Seamless loop: 24 frames at 12 fps (2 s). Only haze, clouds, snow glints and stars move.
   anim("mountains_" + time + "_loop", { w: W, h: H, frames: 24, fps: 12 },
-    ...skyLayer(time, Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+    ...P.sky(Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
     function (c) { c.stamp("_land_" + time + "_" + hazeShift(c.phase), 0, 0) },
-    function (c) { if (time === "dusk") snowShimmer(c) })
+    function (c) { if (time === "dusk") snowShimmer(c) },
+    ...P.end)
 }
 
 mountainScene("dusk")

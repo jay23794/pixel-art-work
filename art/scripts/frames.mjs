@@ -7,6 +7,9 @@
 // writes. Reading them here avoids GIF disposal quirks, and animated scenes only get a GIF.
 // Static check: if the study defines a part `_<asset>_static` (same size), every opaque pixel of it
 // marks a pixel that must be identical in every frame (moon, trunk, dunes...); any change fails.
+// Motion budget (loops): the share of screen pixels that change from one frame to the next
+// (last → first included), mean / max over the loop. Reported against the calm-scene target
+// (MOTION_TARGET); never fails. See docs/night-notes.md (nightcity measured ~0.4%).
 // Exit codes: 0 ok, 2 usage/build error, 3 palette check failed, 4 length not whole cycles,
 // 5 static check failed.
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -103,6 +106,21 @@ if (frames.length > 1 && p.assets.get(maskName)) {
     process.exit(5);
   }
   console.log(`static check ok: ${guarded} pixels in ${maskName} identical in all ${frames.length} frames`);
+}
+
+// ---------------------------------------------------------------- motion budget
+const MOTION_TARGET = [0.4, 2]; // % of the screen changing per frame, calm scenes
+if (frames.length > 1) {
+  const pct = frames.map((f, fi) => {
+    const a = f.img.data, b = frames[(fi + 1) % frames.length].img.data;
+    let n = 0;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++;
+    return (100 * n) / a.length;
+  });
+  const mean = pct.reduce((s, v) => s + v, 0) / pct.length, max = Math.max(...pct), min = Math.min(...pct);
+  const verdict = mean < MOTION_TARGET[0] ? "below target (very still)" : mean > MOTION_TARGET[1] ? "above target (busy)" : "within target";
+  console.log(`motion budget: ${mean.toFixed(2)}% of pixels change per frame (min ${min.toFixed(2)}%, max ${max.toFixed(2)}%); ` +
+    `calm-scene target ${MOTION_TARGET[0]}–${MOTION_TARGET[1]}%: ${verdict}`);
 }
 
 if (first) writeFileSync(first, encodePng(frames[0].img));

@@ -1,9 +1,10 @@
 // harbour_night — showcase: a quiet night view through a window, across a dark bay toward a far
 // city of warm lights. An original scene (no real city, landmark or bridge).
 //
-// Palette: the locked "harbour_night" palette (palettes.px.js): navy/teal everywhere; the only warm
-// colours are the sand slots, used for the city lights and their reflections:
-//   S ember · s amber · a gold · g cream (brightest)
+// Palette: night kit, nightPalette("warm", "harbour_night"): the frame, hills, clouds and water are
+// drawn as before in the old harbour_night keys and remapped to night_base (nightRemap); the city
+// lights, reflections and boats come from the kit (lib/night_city, lib/night_reflections) in the
+// warm accent: 2 rust · 3 amber · 4 gold · 5 cream (brightest).
 // Light: a crescent moon upper left (cool), lighting the cloud bank's top, the hills' rims and the
 // window sill's edge. The city lights are their own sources (reflected straight down the water).
 //
@@ -14,6 +15,9 @@ include("../lib/noise.px.js")
 include("../lib/ridge.px.js")
 include("../lib/dither.px.js")
 include("../lib/sky.px.js")
+include("../lib/night_sky.px.js")
+include("../lib/night_city.px.js")
+include("../lib/night_reflections.px.js")
 
 var W = 360, H = 640
 var SHORE = 342 // the far shore / waterline
@@ -21,30 +25,11 @@ var VIEW = { x0: 30, x1: 330, y0: 52, y1: 480, round: 46 } // window opening, ro
 var SKY = {
   horizon: SHORE,
   moon: { x: 98, y: 126, crescent: { dx: 7, dy: -5 } },
-  clouds: { x: -400, stratus: { hide: [0] } }, // our own cloud bank instead
-  stars: { maxY: 236, density: 3.4 },           // dense stars, kept high above the cloud bank
-  glow: { r: 0, ramp: 1 },                      // no ramp glow: moonHalo() draws an even, stepped one
+  clouds: { amount: 0 },               // our own cloud bank instead
+  stars: { maxY: 236, density: 3.4 },  // dense stars, kept high above the cloud bank
+  glow: { rings: [2.5, 5.5] },         // two flat rings by true distance: even round the crescent
 }
-var MOON = skyLight("night", SKY)
-
-/**
- * Moon halo: two flat rings by true distance to the lit crescent pixels, so the steps stay even
- * all the way round, inner curve included. A ring only ever brightens the sky under it (U<D<d).
- */
-function moonHalo(c) {
-  var lit = [], R = MOON.r + 8, SKYK = "UDduk"
-  for (var y = MOON.y - R; y <= MOON.y + R; y++)
-    for (var x = MOON.x - R; x <= MOON.x + R; x++) if ("ONnow".indexOf(c.key(x, y)) >= 0) lit.push([x, y])
-  for (var y = MOON.y - R; y <= MOON.y + R; y++)
-    for (var x = MOON.x - R; x <= MOON.x + R; x++) {
-      var cur = SKYK.indexOf(c.key(x, y))
-      if (cur < 0) continue // moon or star pixel
-      var d = 99
-      lit.forEach(function (p) { d = Math.min(d, Math.hypot(x - p[0], y - p[1])) })
-      var ring = d <= 2.5 ? 2 : d <= 5.5 ? 1 : 0
-      if (ring > cur) c.px(x, y, SKYK[ring])
-    }
-}
+var MOON = nightLight(SKY)
 
 // ---------------------------------------------------------------- cloud bank and hills
 
@@ -91,82 +76,8 @@ function hills(c) {
 }
 
 // ---------------------------------------------------------------- city
-
-/** Light density along the shore: a downtown peak in the middle, thinning out to the sides. */
-function density(x) { return 0.12 + 0.88 * Math.exp(-Math.pow((x - 182) / 56, 2)) }
-
-// Downtown towers: [x, width, top]. Dark shapes with a grid of lit window dots.
-var TOWERS = [[150, 8, 304], [160, 12, 294], [174, 7, 300], [183, 10, 288], [195, 8, 298], [205, 12, 306], [220, 6, 314]]
-
-/** A light's colour from its brightness 0..1. */
-function lightKey(v) { return v > 0.93 ? "g" : v > 0.6 ? "a" : v > 0.25 ? "s" : "S" }
-
-var LIGHTS = [] // { x, y, v } — collected for the reflections
-
-/**
- * The city: lights on streets. Shore promenade and parallel streets climbing the near hills
- * (rows a few px apart, perspective-compressed), plus a few roads winding up the hills, all
- * thinning out with distance from downtown; towers downtown with window dots.
- */
-function city(c, p) {
-  LIGHTS = []
-  function light(x, y, v) {
-    x = Math.round(x); y = Math.round(y)
-    if (x < 0 || x >= W || y < HILLS_NEAR[x] + 2) return
-    v = flicker(x, y, v, p)
-    c.px(x, y, lightKey(v))
-    if (v > 0.85 && hash2(41, x, y) > 0.5) c.px(x + 1, y, lightKey(v * 0.8)) // a few 2-px lights
-    LIGHTS.push({ x: x, y: y, v: v })
-  }
-  // Streets parallel to the shore.
-  ;[0, 2, 4, 7, 10, 13, 17, 21].forEach(function (up, si) {
-    var y = SHORE - 2 - up
-    for (var x = 0; x < W; x += 2 + Math.round(hash2(42, si, x) * 2)) {
-      var block = hash2(43, si, Math.floor(x / 14)) // dark blocks between streets
-      if (block < 0.15) continue
-      // brighter downtown: the brightness leans up with density
-      if (hash2(44, si, x) < density(x) * (si === 0 ? 1.2 : 1.0 - si * 0.07)) light(x, y, Math.min(1, hash2(45, si, x) * (0.7 + 0.5 * density(x))))
-    }
-  })
-  // Houses scattered along contour lines on the near hills, sparse.
-  for (var i = 0; i < 70; i++) {
-    var x = Math.floor(hash2(49, i, 0) * W), up = 4 + Math.floor(hash2(49, i, 1) * 3) * 4
-    light(x, Math.max(HILLS_NEAR[x] + 3, SHORE - 24 - up), 0.15 + 0.5 * hash2(49, i, 2))
-  }
-  // Roads winding up the hills, lights every few px.
-  ;[[60, SHORE - 3, 26, 310, 0.5], [292, SHORE - 3, 330, 316, 0.6], [120, SHORE - 6, 104, 318, 0.4]].forEach(function (r, ri) {
-    for (var t = 0; t <= 1; t += 0.06) light(r[0] + (r[2] - r[0]) * t + 2 * Math.sin(t * 9), r[1] + (r[3] - r[1]) * t, r[4] * hash2(46, ri, t * 100))
-  })
-  // Towers.
-  TOWERS.forEach(function (tw, ti) {
-    c.rect(tw[0], tw[2], tw[1], SHORE - tw[2], "R")
-    c.rect(tw[0], tw[2], 1, SHORE - tw[2], "B") // shadow edge away from the moon (right is lit side? moon left: left edge lit)
-    for (var y = tw[2] + 2; y < SHORE - 3; y += 3)
-      for (var x = tw[0] + 1; x < tw[0] + tw[1] - 1; x += 2)
-        if (hash2(47, ti * 100 + x, y) < 0.32) { c.px(x, y, lightKey(flicker(x, y, 0.3 + 0.6 * hash2(48, x, y), p))); LIGHTS.push({ x: x, y: y, v: 0.5 }) }
-  })
-  // Street level downtown: lit shopfronts along the tower bases and the blocks between them.
-  for (var x = 136; x < 236; x++) {
-    var dd = density(x)
-    if (hash2(65, x, 0) < 0.75 * dd) light(x, SHORE - 2, 0.55 + 0.45 * hash2(65, x, 1) * dd)
-    if (hash2(65, x, 2) < 0.45 * dd) light(x, SHORE - 4, 0.4 + 0.5 * hash2(65, x, 3))
-  }
-  // Waterfront: a row of quay lamps right on the waterline, evenly spaced, denser downtown.
-  for (var x = 4; x < W - 4; x += 3) if (hash2(66, x, 0) < 0.25 + 0.75 * density(x)) light(x, SHORE - 1, 0.62 + 0.38 * density(x) * hash2(66, x, 1))
-}
-
-/** Twinkle: about one light in twelve dims a step for part of the loop, each at its own phase. */
-function flicker(x, y, v, p) {
-  if (p === null || hash2(90, x, y) > 0.08) return v
-  return Math.sin(2 * Math.PI * (p + hash2(91, x, y))) > 0.55 ? v * 0.55 : v
-}
-
-/** Sideways shimmer of a reflection dash: -1, 0 or +1 px, at its own phase. */
-function shimmer(p, seed, a, b) {
-  if (p === null) return 0
-  var s = Math.sin(2 * Math.PI * (p + hash2(seed, a, b)))
-  return s > 0.5 ? 1 : s < -0.5 ? -1 : 0
-}
+// The city lights (streets, houses, roads, towers, shopfronts, quay lamps) are the kit's
+// cityLights() with its defaults (= this scene), towers in sky U with a B edge; see the scene below.
 
 // ---------------------------------------------------------------- water
 
@@ -182,41 +93,6 @@ function water(c) {
       x += len + gap; n++
     }
   }
-}
-
-/**
- * Reflections: under every bright light, short broken vertical dashes running down the water,
- * dimming one warm step at a time; longer under the brightest. Faint silver glitter under the moon.
- */
-function reflections(c, p) {
-  LIGHTS.forEach(function (l, i) {
-    if (l.v < 0.6 || l.y < SHORE - 14) return // only bright lights near the shore reflect
-    var len = Math.round(10 + 60 * (l.v - 0.6) * (0.5 + hash2(55, i, 0))), y = SHORE + 3 + Math.round(hash2(56, i, 0) * 9), v = l.v * 0.75
-    while (y < SHORE + len) {
-      var dash = 1 + Math.round(hash2(57, i, y) * 2)
-      if (hash2(58, i, y) > 0.25) c.rect(l.x + shimmer(p, 92, i, y), y, 1, dash, lightKey(v))
-      y += dash + 1 + Math.round(hash2(59, i, y) * 3); v *= 0.88
-    }
-  })
-  // moon glitter: a few cool dashes under the moon
-  for (var y = SHORE + 6; y < VIEW.y1; y += 4) {
-    var hw = 3 + (y - SHORE) * 0.12
-    for (var k = 0; k < 2; k++) {
-      var x = Math.round(MOON.x - hw + hash2(60, y, k) * 2 * hw)
-      if (hash2(61, y, k) > 0.4) c.rect(x + shimmer(p, 93, y, k), y, 2 + Math.round(hash2(62, y, k) * 3), 1, k ? "N" : "O")
-    }
-  }
-}
-
-/** Boat lights: small warm dots on the water with a short reflection; no boat shapes. */
-var BOATS = [[72, 384, 0.9], [244, 368, 0.8], [292, 410, 1], [140, 428, 0.7]]
-function boats(c, p) {
-  BOATS.forEach(function (b, bi) {
-    var bx = b[0] + (p === null ? 0 : Math.round(Math.sin(2 * Math.PI * (p + bi / BOATS.length)))) // drifts ±1 px
-    c.rect(bx, b[1], 2, 1, lightKey(b[2]))
-    c.px(bx + 3, b[1] + 1, "S") // a second, dimmer light on the same boat
-    for (var y = b[1] + 2; y < b[1] + 12; y += 3) if (hash2(63, bi, y) > 0.3) c.rect(bx + shimmer(p, 94, bi, y), y, 1, 2, lightKey(b[2] * 0.6))
-  })
 }
 
 // ---------------------------------------------------------------- window frame
@@ -286,29 +162,35 @@ function frame(c) {
 
 // ---------------------------------------------------------------- scene
 
+nightPalette("warm", "harbour_night")
+var CITY = cityLights({ shore: SHORE, ridge: HILLS_NEAR, keys: { tower: "U", edge: "B" } })
+// Reflections: under every bright light, broken dashes dimming down the water; a moon glitter of
+// cold-rim dashes; boat lights (dots with a short reflection, no boat shapes).
+var REFL = reflections({ source: CITY, top: SHORE, moon: { x: MOON.x, y1: VIEW.y1, keys: ["N", "N"] },
+  boats: [[72, 384, 0.9], [244, 368, 0.8], [292, 410, 1], [140, 428, 0.7]] })
+
 /** Everything, at rest (p = null) or for one loop frame (p = c.phase). */
 function harbourItems(animate) {
   function ph(c) { return animate ? c.phase || 0 : null }
   return [
-    moonHalo,
     cloudBank,
     hills,
     water,
-    function (c) { city(c, ph(c)) },
-    function (c) { reflections(c, ph(c)) },
-    function (c) { boats(c, ph(c)) },
+    function (c) { CITY(c, ph(c)) },
+    function (c) { REFL(c, ph(c)) },
     frame,
+    nightRemap(),
   ]
 }
 
-palette("harbour_night")
 scene("harbour_night", { w: W, h: H, bg: "U" },
-  ...skyLayer("night", SKY),
+  ...nightSky(SKY),
   ...harbourItems(false),
 )
-// Seamless loop: 24 frames at 12 fps (2 s). City lights twinkle, reflections shimmer 1 px sideways,
-// boat lights drift, a few stars twinkle. Frame, wall, moonlight patch and hills stay still.
+// Seamless loop: 24 frames at 12 fps (2 s). ~3% of the city lights burst once (nightFlicker),
+// reflections shimmer 1 px sideways, boat lights drift, a few stars twinkle. Frame, wall, moonlight
+// patch and hills stay still.
 anim("harbour_night_loop", { w: W, h: H, frames: 24, fps: 12 },
-  ...skyLayer("night", Object.assign({}, SKY, { motion: { twinkle: { n: 9, maxY: 236 } } })),
+  ...nightSky(Object.assign({}, SKY, { motion: { twinkle: { n: 9, maxY: 236 } } })),
   ...harbourItems(true),
 )
