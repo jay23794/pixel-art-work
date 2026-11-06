@@ -1,19 +1,22 @@
 // beach_night — a windy beach at night under a bright full moon: torn clouds stream past the moon,
-// two waves break and wash up the sand, a palm and the dune grass bend in the wind.
+// two waves break and wash up the sand, the dune grass bends in the wind, a starfish lies on the dune.
 //
-// Light: the full moon upper right (MOON). Cloud edges, palm fronds and grass blades are lit on the
+// Light: the full moon upper right (MOON). Cloud edges, grass blades and the starfish are lit on the
 // side facing it; its silver path runs down the water to the shore (the focal point, right third)
 // and carries on faintly in the wet sand. The wave faces turn away from it (backlit, dark) with
 // bright crests; the near dune faces the viewer, away from the moon, so it stays dark.
-// Palette: "beach_night" = night + z recoloured a pale moonlit green (frond edges facing the moon).
-// Wind: from the right, blowing LEFT. Clouds, fronds, grass and blown sand all lean that way.
+// Palette: night kit, nightPalette("silver", "beach_night"): drawn in the old beach_night keys and
+// remapped to night_base (nightRemap). The starfish (old coral F f z) becomes ground S s a: accents
+// are for light sources only.
+// Wind: from the right, blowing LEFT. Clouds, grass and blown sand all lean that way.
 //
 // Depth, back to front: sky → open sea (wave rows growing toward the beach) → two breakers →
-// foam wash → wet sand → dry sand → dune lip with grass and the palm → dune face (bottom safe zone).
+// foam wash → wet sand → dry sand → dune lip with grass and the starfish → dune face (bottom safe zone).
 include("../palettes.px.js")
 include("../lib/noise.px.js")
 include("../lib/dither.px.js")
 include("../lib/sky.px.js")
+include("../lib/night_sky.px.js")
 include("../lib/breakers.px.js")
 
 var W = 360, H = 640
@@ -25,7 +28,7 @@ var SKY = {
   stars: { maxY: 200 },
   glow: { r: 18, ramp: 2 },
 }
-var MOON = skyLight("night", SKY)
+var MOON = nightLight(SKY)
 var LIGHT_X = MOON.x // the moon path's axis
 var WIND = -1        // blowing left
 
@@ -287,7 +290,7 @@ function dryBeach(c) {
 }
 
 /**
- * The dune lip and its face: a dark crest line rising under the palm, moonlit along its top, the
+ * The dune lip and its face: a dark crest line rising on the left, moonlit along its top, the
  * face toward the viewer in shadow. The face down into the bottom safe zone is texture only:
  * slanted wind ripples (crests 1 step lighter), sparse.
  */
@@ -350,117 +353,62 @@ function blownSand(c, m) {
   })
 }
 
-// ---------------------------------------------------------------- palm
-
-var PALM_BASE = [36, 470], PALM_TOP = [104, 212]
-/** Trunk spine: a cubic curve leaning right, bowing as it rises. */
-function trunkAt(t) {
-  var P = [[36, 470], [28, 370], [64, 262], [104, 212]], u = 1 - t
-  return [u * u * u * P[0][0] + 3 * u * u * t * P[1][0] + 3 * u * t * t * P[2][0] + t * t * t * P[3][0],
-          u * u * u * P[0][1] + 3 * u * u * t * P[1][1] + 3 * u * t * t * P[2][1] + t * t * t * P[3][1]]
-}
-
-// Fronds: start angle (degrees, 0 = right, -90 = up), length, gust phase, in front of the crown?
-var FRONDS = [[-95, 96, 0.1, 0], [-62, 100, 0.15, 0], [-28, 90, 0.2, 0], [8, 80, 0.25, 0], [62, 64, 0.45, 0],
-              [-160, 104, 0.0, 1], [-128, 112, 0.05, 1], [150, 92, 0.3, 1], [118, 78, 0.35, 1], [-185, 88, 0.4, 1]]
+// ---------------------------------------------------------------- starfish
 
 /**
- * The trunk (with the crown's bunched frond bases): ringed, lit on the moon side. Static, so it is
- * a mask built once and stamped over the fronds every frame.
+ * A starfish lying on the dune lip, seen at a low angle (squashed vertically): five tapering arms
+ * with blunt tips, lit on the edges facing the moon (upper right, z), shadowed on the far side (F),
+ * a row of bumps down each arm, and a small cast shadow on the sand away from the moon. Still.
  */
-var TRUNK = (function () {
-  var mask = new Uint8Array(W * H) // 2 trunk, 3 ring
-  function put(x, y, v) { x = Math.round(x); y = Math.round(y); if (x >= 0 && x < W && y >= 0 && y < H && mask[y * W + x] < v) mask[y * W + x] = v }
-  for (var s = 0; s <= 400; s++) {
-    var t = s / 400, p = trunkAt(t), wd = 6 - 2.5 * t
-    var q = trunkAt(Math.min(1, t + 0.01)), dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1
-    var nx = -dy / l, ny = dx / l, ring = (s % 13) < 2
-    for (var w = -wd; w <= wd; w += 0.5) put(p[0] + nx * w, p[1] + ny * w, ring && Math.abs(w) < wd - 0.5 ? 3 : 2)
-  }
-  for (var dy = -5; dy <= 4; dy++) for (var dx = -6; dx <= 6; dx++) if (dx * dx / 36 + dy * dy / 25 <= 1) put(PALM_TOP[0] + dx, PALM_TOP[1] + dy, 2)
-  return mask
-})()
-function trunk(c) {
-  function at(x, y) { return x >= 0 && x < W && y >= 0 && y < H ? TRUNK[y * W + x] : 0 }
-  for (var y = 0; y < H; y++)
-    for (var x = 0; x < W; x++) {
-      var v = TRUNK[y * W + x]
-      if (!v) continue
-      var lit = !at(x + 1, y) || !at(x + 1, y - 1) && !at(x, y - 1) // edge facing the moon (upper right)
-      var k = v === 3 ? "B" : lit ? "b" : !at(x - 1, y) ? "B" : "R"
-      if (v === 2 && !lit && at(x + 1, y) === 2 && !at(x + 2, y)) k = "r" // a step before the lit edge
+var STAR = { x: 54, y: 502, r: 13, rot: -0.3, sq: 0.62 } // clear of the grass tips' sweep
+function starIn(x, y) {
+  var dx = (x + 0.5 - STAR.x) / STAR.r, dy = (y + 0.5 - STAR.y) / (STAR.r * STAR.sq)
+  var d = Math.hypot(dx, dy), th = Math.atan2(dy, dx) - STAR.rot
+  var arm = Math.abs(Math.cos(2.5 * th)) // 1 on an arm's centre line, 0 between arms
+  return d <= 0.42 + 0.58 * Math.pow(arm, 1.5)
+}
+function starfish(c) {
+  var R = STAR.r
+  // cast shadow: the shape nudged down-left (away from the moon), on the sand only
+  for (var y = STAR.y - R; y <= STAR.y + R; y++)
+    for (var x = STAR.x - R - 3; x <= STAR.x + R; x++)
+      if (starIn(x + 2, y - 1) && !starIn(x, y)) c.px(x, y, "A")
+  for (var y = STAR.y - R; y <= STAR.y + R; y++)
+    for (var x = STAR.x - R; x <= STAR.x + R; x++) {
+      if (!starIn(x, y)) continue
+      var k = "f"
+      if (!starIn(x + 1, y - 1) || !starIn(x, y - 1) && !starIn(x + 1, y)) k = "z"      // edge facing the moon
+      else if (!starIn(x - 1, y + 1) || !starIn(x, y + 1)) k = "F"                    // underside, away from it
+      else {
+        // bumps along each arm's centre line, every 3 px
+        var dx = (x + 0.5 - STAR.x) / R, dy = (y + 0.5 - STAR.y) / (R * STAR.sq), th = Math.atan2(dy, dx) - STAR.rot
+        if (Math.abs(Math.cos(2.5 * th)) > 0.97 && Math.round(Math.hypot(dx, dy) * R) % 3 === 0 && Math.hypot(dx, dy) > 0.3) k = "z"
+      }
       c.px(x, y, k)
     }
 }
 
-/**
- * Fronds swept downwind. Each rib starts at its own angle and turns toward the wind (left and a
- * little down) along its length, further in a gust; leaflets hang off both sides, trailing with the
- * rib. Depth: the fronds reaching up and back over the crown are behind it, darker (B body, J lit
- * edge); the long ones sweeping out front are lighter (J body, j lit edge, z top edge in moonlight)
- * and overlap them. Drawn into a mask first so the lit edges follow the silhouette.
- */
-var FB = { x0: 0, x1: 220, y0: 110, y1: 350 } // the fronds' box (their whole reach, in any gust)
-function fronds(c, m) {
-  var w = FB.x1 - FB.x0, mask = new Uint8Array(w * (FB.y1 - FB.y0)) // 1 back frond, 2 front frond
-  function put(x, y, v) {
-    x = Math.round(x); y = Math.round(y)
-    if (x >= FB.x0 && x < FB.x1 && y >= FB.y0 && y < FB.y1 && mask[(y - FB.y0) * w + x - FB.x0] < v) mask[(y - FB.y0) * w + x - FB.x0] = v
-  }
-  var WD = Math.PI * 1.06 // wind direction: left and slightly down
-  FRONDS.forEach(function (f, fi) {
-    var g = gust(m, f[2]), a0 = f[0] * Math.PI / 180, x = PALM_TOP[0], y = PALM_TOP[1], L = f[1], v = f[3] ? 2 : 1
-    var da = WD - a0 // take the short way round toward the wind direction
-    while (da > Math.PI) da -= TAU
-    while (da < -Math.PI) da += TAU
-    for (var i = 0; i < L; i++) {
-      var t = i / L, a = a0 + da * Math.min(1, Math.pow(t, 0.75) * (0.75 + 0.35 * g))
-      x += Math.cos(a); y += Math.sin(a) + 0.15 * t // a little droop
-      put(x, y, v); put(x, y + 1, v)
-      if (i < 5) continue
-      var len = Math.round((1 - t * 0.7) * 16 * (0.85 + 0.3 * hash2(120, fi, i)))
-      ;[-1, 1].forEach(function (sd) {
-        var la = a + sd * 0.45
-        for (var k = 1; k <= len; k++) {
-          var kk = k / len
-          var lx = x + Math.cos(la) * k + WIND * kk * kk * 3 * (0.6 + g), ly = y + Math.sin(la) * k + kk * kk * (sd > 0 ? 5 : 2)
-          put(lx, ly, v); if (k < len * 0.6) put(lx, ly + 1, v)
-        }
-      })
-    }
-  })
-  // an edge faces the moon (upper right) where the next pixel that way isn't this layer or a nearer one
-  function same(x, y, v) { return x >= FB.x0 && x < FB.x1 && y >= FB.y0 && y < FB.y1 && mask[(y - FB.y0) * w + x - FB.x0] >= v }
-  for (var y = FB.y0; y < FB.y1; y++)
-    for (var x = FB.x0; x < FB.x1; x++) {
-      var v = mask[(y - FB.y0) * w + x - FB.x0]
-      if (!v || TRUNK[y * W + x]) continue // the trunk is stamped over
-      var top = !same(x, y - 1, v) && !same(x + 1, y - 1, v), lit = !same(x + 1, y, v) || top
-      c.px(x, y, v === 2 ? (top ? "z" : lit ? "j" : "J") : (lit ? "J" : "B"))
-    }
-}
-
-/** The part that must never move in the loop (reel.sh checks it): moon disk, trunk, dune face. */
+/** The part that must never move in the loop (reel.sh checks it): moon disk, starfish, dune face. */
 function staticMask(c) {
   for (var y = 0; y < H; y++)
     for (var x = 0; x < W; x++)
-      if (TRUNK[y * W + x] || Math.hypot(x - MOON.x, y - MOON.y) <= MOON.r || y >= 526) c.px(x, y, "B")
+      if (Math.hypot(x - MOON.x, y - MOON.y) <= MOON.r || y >= 526 || starIn(x, y) || starIn(x + 2, y - 1)) c.px(x, y, "B") // starfish + its shadow
 }
 
 // ---------------------------------------------------------------- scene
 
 /**
- * Static layers, built once and stamped: the sky without its stars, the sea's water, the dry sand
- * and the dune behind everything; the trunk in front of the fronds.
+ * Static layers, built once and stamped: the sky without its stars, the sea's water, the dry sand,
+ * the dune and the starfish behind everything that moves.
  */
-palette("beach_night")
+nightPalette("silver", "beach_night")
 scene("_bn_back", { w: W, h: H, bg: "U" },
-  ...skyLayer("night", Object.assign({}, SKY, { layer: "back" })),
+  ...nightSky(Object.assign({}, SKY, { layer: "back" })),
   seaFill,
   dryBeach,
   dune,
+  starfish,
 )
-sprite("_bn_trunk", { w: W, h: H }, trunk)
 sprite("_beach_night_loop_static", { w: W, h: H }, staticMask)
 
 /** Everything that moves, at rest (STILL) or for one loop frame (motion(c)), over the stamped back. */
@@ -468,7 +416,7 @@ function beachItems(animate) {
   function st(c) { return animate ? motion(c) : STILL }
   return [
     stamp("_bn_back", 0, 0),
-    ...skyLayer("night", Object.assign({}, SKY, { layer: "stars" }, animate ? { motion: { twinkle: { n: 8, maxY: 190 } } } : {})),
+    ...nightSky(Object.assign({}, SKY, { layer: "stars" }, animate ? { motion: { twinkle: { n: 8, maxY: 190 } } } : {})),
     function (c) { clouds(c, st(c)) },
     function (c) { seaRows(c, st(c)) },
     function (c) { var m = st(c); lace(c, m, BREAK[0].y + 6, BREAK[1].y - BREAK[1].h - 2, 130, m.on ? Math.round(WIND * 16 * Math.sin(TAU * m.p)) : 0) },
@@ -477,14 +425,13 @@ function beachItems(animate) {
     ...breakers(breakerOpts(animate)),
     function (c) { grass(c, st(c)) },
     function (c) { blownSand(c, st(c)) },
-    function (c) { fronds(c, st(c)) },
-    stamp("_bn_trunk", 0, 0),
+    nightRemap(),
   ]
 }
 
 scene("beach_night", { w: W, h: H, bg: "U" }, ...beachItems(false))
 // Seamless loop: 48 frames at 12 fps (4 s). Main motion: each spot breaks one wave per cycle and
 // the near one's foam washes up the sand and drains back. The moon path shimmers, clouds stream
-// and tear, fronds and grass bend in gusts (each at its own phase), sand blows off the lip, a few
-// stars twinkle. Moon, palm trunk and dune shapes stay still (reel.sh checks _beach_night_loop_static).
+// and tear, grass bends in gusts (each clump at its own phase), sand blows off the lip, a few stars
+// twinkle. Moon, starfish and dune shapes stay still (reel.sh checks _beach_night_loop_static).
 anim("beach_night_loop", { w: W, h: H, frames: 48, fps: 12 }, ...beachItems(true))

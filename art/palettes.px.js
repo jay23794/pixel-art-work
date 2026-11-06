@@ -97,11 +97,11 @@ PALETTES.harbour_night = [
   ["#0a1820", "#13303a"],                                  // foliage slots = water teals
 ]
 
-// Variant for beach_night only: the night palette with the far ramp's highlight z (unused by that
-// scene) recoloured a pale moonlit green for the palm fronds' edges facing the moon. Same 32 slots,
-// same order; every other scene is unaffected.
+// Variant for beach_night only: the night palette with three far-ramp slots that scene never uses
+// (F, f, z) recoloured a dusky, moonlit coral for the starfish: F shadow, f body, z lit edge.
+// Same 32 slots, same order; every other scene is unaffected.
 PALETTES.beach_night = PALETTES.night.map(function (ramp, r) {
-  return r === 3 ? ramp.slice(0, 4).concat(["#7fae96"]) : ramp
+  return r === 3 ? [ramp[0], "#4a2a44", "#7a4252", ramp[3], "#b06a70"] : ramp
 })
 
 /** Activate a palette: only its 32 keys exist afterwards, with ramps for shade/light/glow. */

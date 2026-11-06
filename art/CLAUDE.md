@@ -11,6 +11,8 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 - **Exception: `harbour_night`** (showcase) may have simple far buildings (dark shapes with lit
   window dots) and an interior window frame + sill (silhouette). Boats appear only as small light
   dots on the water, never as boat shapes. Still no piers, vehicles or characters.
+- **Exception: `beach_night`** may have one starfish lying on the dune (requested). No palm or
+  other objects.
 
 ## Times of day
 - Every study is **dusk + night only**. Sunrise and day are parked (their palettes and skies exist
