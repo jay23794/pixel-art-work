@@ -155,3 +155,17 @@ function nightLightness(h) {
   var s = Math.cbrt(0.0883024619 * v[0] + 0.2817188376 * v[1] + 0.6299787005 * v[2])
   return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s
 }
+
+/**
+ * Run an item n times per loop: it sees c.phase · n (mod 1). For scenes whose loop is one long
+ * cycle (fog `drift`: e.g. 72 frames = 6 s) while faster modules (rain, ripples) keep their own
+ * short cycle: nightRepeat(rain({...}), 3) repeats a 2 s rain loop three times. Give frame-counting
+ * modules (lightning, meteor) frames = loop frames / n.
+ */
+function nightRepeat(item, n) {
+  return function (c) {
+    var cc = Object.create(c)
+    Object.defineProperty(cc, "phase", { value: ((c.phase || 0) * n) % 1 })
+    return item(cc)
+  }
+}

@@ -91,8 +91,12 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
     `lib/night_rain.px.js` `rain({ angle, density, wind, ground })` (4 depths, slanted space:
     angle snaps to 1/n for regular runs); `lib/night_ripples.px.js` `ripples({ area, mask, mode })`
     (`"ring"` stepped rings that fade into dashes; `"light"` breaks up reflections);
-    `lib/night_fog.px.js` `fog({ top, height, bands, role, density, amp, sway })` (cool veils +
-    a solid bottom band; sway + morph, since a one-way drift can't loop at fog speed);
+    `lib/night_fog.px.js` `fog({ top, height, bands, role, density, amp, sway, motion, period })`
+    (cool veils + a solid bottom band). `motion: "sway"` (default) sways + morphs in any loop.
+    **`motion: "drift"`** moves one way by `drift` px per loop (two cross-faded copies: seamless
+    at any distance): make the fog cycle the whole reel (the longest loop, 72 frames = 6 s; a
+    12 s reel = 2 cycles) with `period: 180, drift: 90` (1.25 px/frame, reads as fog; 2.5 px/frame
+    reads as sliding), and run faster modules inside it with `nightRepeat(item, n)`;
     `lib/night_lightning.px.js` `lightning({ frames, at, horizon, bolt })` (one strike per loop,
     `NIGHT_LIGHTNING_PATTERN`: sky +1 step on 2 frames, bolt, cooling channel, return stroke);
     `lib/night_meteor.px.js` `meteor({ from, to, frames, at, dur })` (once per loop; use a 2:1 or
@@ -124,6 +128,11 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   so (`beach_night_loop`: 48 frames, 4 s).
 - pxl rounds 1000/12 ms to 83 ms, so its GIF previews loop in 1992 ms. `reel.sh` samples by frame
   count at the nominal fps, so each cycle in the MP4 lasts exactly 2.000 s.
+- **Lightning safety:** at most one strike per 4 s (`lightning` loops of 48+ frames, one strike
+  each); the flash is the sky up **one** palette step for **≤ 3 frames**; never a full-screen
+  bright flash (no white or near-white fills, ground and foreground never flash).
+- pxl caps an image at 16.7 Mpx, so an anim of 360×640 is at most **72 frames** (6 s at 12 fps).
+  Longer cycles don't build ("image too large").
 - `reel.sh` reports a **motion budget** for loops: % of screen pixels changing per frame
   (reported, never enforced). Targets: **calm scenes 0.1–2%**; **dramatic scenes** (breaking
   waves, storms) **up to ~5%**. Near 0% is fine when a scene is meant to be subtle

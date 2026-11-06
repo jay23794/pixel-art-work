@@ -37,7 +37,9 @@ function ripples(opts) {
           var sd = 700 + seed, id = cj * 1000 + ci
           var start = hash2(sd, id, k) , age = ((((p - start - k / per) % 1) + 1) % 1) / life
           if (age >= 1) continue
-          var cx = A[0] + ci * cell[0] + Math.floor(hash2(sd + 1, id, k) * cell[0]), cy = A[1] + cj * cell[1] + Math.floor(hash2(sd + 2, id, k) * cell[1])
+          // Centres stay inside the area (the last row/column of cells may overhang it).
+          var cx = Math.min(A[0] + A[2] - 1, A[0] + ci * cell[0] + Math.floor(hash2(sd + 1, id, k) * cell[0]))
+          var cy = Math.min(A[1] + A[3] - 1, A[1] + cj * cell[1] + Math.floor(hash2(sd + 2, id, k) * cell[1]))
           if (mask && !mask(cx, cy)) continue
           var rx = 1 + (rmax - 1) * Math.pow(age, 0.7), ry = Math.max(0.6, rx / ratio)
           ring(c, cx, cy, rx, ry, age, id * 7 + k)

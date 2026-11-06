@@ -1,7 +1,7 @@
 // test_fog — night_tests: fog(opts) between two ranges. Not a scene: a module test.
 // Light: the moon upper right. Far range dark blue (low contrast), mid range in violet rock; the fog sits in the
 // valley between them (two veils that turn the rock cool, a solid haze band at the bottom) and
-// sways; the near ground covers its foot.
+// sways (test_fog_drift_loop: drifts one way, one 6 s cycle); the near ground covers its foot.
 include("../../lib/night_sky.px.js")
 include("../../lib/ridge.px.js")
 include("../../lib/night_fog.px.js")
@@ -27,3 +27,10 @@ var ITEMS = [...SKY, range(FAR, "D", "d", H), range(MID, "r", "b", H), FOG, rang
 scene("test_fog", { w: W, h: H, bg: K("U") }, ...ITEMS)
 anim("test_fog_loop", { w: W, h: H, frames: 24, fps: 12 }, ...ITEMS)
 sprite("_test_fog_loop_static", { w: W, h: H }, function (c) { c.rect(0, 0, W, 395, K("B")); c.rect(0, 545, W, H - 545, K("B")) })
+
+// Drift: the same fog moving one way: one 6 s cycle (72 frames, pxl's longest 360×640 anim), 90 px
+// per loop = 1.25 px/frame (cross-faded copies, seamless); a 12 s reel is two cycles.
+var FOG_DRIFT = fog({ top: 440, height: 100, role: "haze", amp: 9, motion: "drift", period: 180, drift: 90 })
+anim("test_fog_drift_loop", { w: W, h: H, frames: 72, fps: 12 },
+  ...SKY, range(FAR, "D", "d", H), range(MID, "r", "b", H), FOG_DRIFT, range(NEAR, "R", "r", H))
+sprite("_test_fog_drift_loop_static", { w: W, h: H }, function (c) { c.rect(0, 0, W, 395, K("B")); c.rect(0, 545, W, H - 545, K("B")) })
