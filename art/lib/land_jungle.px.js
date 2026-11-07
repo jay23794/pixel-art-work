@@ -386,6 +386,7 @@ function landJungle() {
     var flies = night && o.fireflies !== false ? fireflies() : null
     scene(N, { w: W, h: H, bg: "U" },
       ...sky(SKY_OPTS[time]),
+      ...stage("sky", false),
       stamp("_far" + t, 0, 0), stamp("_far2" + t, 0, 0), stamp("_midfar" + t, 0, 0),
       fog,
       ...stage("back", false),
@@ -397,8 +398,9 @@ function landJungle() {
     )
     // Seamless loop: 24 frames at 12 fps (2 s). Fog drifts, shaft edges shimmer, vines sway; dusk:
     // dust motes in the shafts; night: fireflies (the main motion). Trunks, ground, canopy still.
-    anim(N + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    anim(N + "_loop", { w: W, h: H, frames: landFrames(o, 24), fps: 12 }, ...landOwn(o, 24, [
       ...sky(SKY_OPTS[time]),
+      ...stage("sky", true),
       stamp("_far" + t, 0, 0), stamp("_far2" + t, 0, 0), stamp("_midfar" + t, 0, 0),
       function (c) { fog(c, motion(c)) },
       ...stage("back", true),
@@ -407,8 +409,8 @@ function landJungle() {
       function (c) { if (time === "dusk") motes(c, motion(c)); else if (flies) flies(c) },
       stamp("_near" + t, 0, 0),
       vinesFor(time, true),
-      ...P.end, ...stage("front", true))
+      ...P.end, ...stage("front", true)]))
   }
 
-  return { define: jungleScene, geo: { horizon: 456, water: null, ground: 560, frames: 24, accent: "warm", legacy: "jungle_night", sky: SKY_OPTS.night } }
+  return { define: jungleScene, geo: { flies: function (place) { return place === "grass" ? "own" : null }, fliesWhy: "fireflies live over the clearing (place \"grass\")", horizon: 456, water: null, ground: 560, frames: 24, accent: "warm", legacy: "jungle_night", sky: SKY_OPTS.night } }
 }

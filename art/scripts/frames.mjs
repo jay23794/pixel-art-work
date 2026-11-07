@@ -125,10 +125,20 @@ if (frames.length > 1) {
     : mean <= MOTION_CALM[1] ? "calm" : mean <= MOTION_DRAMATIC ? "dramatic (waves, storms)" : "above dramatic (busy)";
   console.log(`motion budget: ${pctFmt(mean)} of pixels change per frame (min ${pctFmt(min)}, max ${pctFmt(max)}); ` +
     `calm ${MOTION_CALM[0]}–${MOTION_CALM[1]}%, dramatic ≤ ~${MOTION_DRAMATIC}%: ${verdict}`);
-  // --target name:lo:hi (night scenes from JSON: motion.budget): the scene's own target, reported.
+  // --target name:lo:hi[:flash] (night scenes from JSON: motion.budget): the scene's own target.
+  // Lightning flash frames (comma list) are reported apart: the budget is judged without them.
   if (target) {
-    const [tn, lo, hi] = target.split(":"), l = Number(lo), h = Number(hi);
-    console.log(`motion target ${tn} ${l}–${h}%: ${mean < l ? "BELOW (too still for " + tn + ")" : mean > h ? "ABOVE (too busy for " + tn + ")" : "inside"}`);
+    const [tn, lo, hi, fl] = target.split(":"), l = Number(lo), h = Number(hi);
+    const flash = new Set(fl && fl !== "-" ? fl.split(",").map(Number) : []);
+    let m = mean;
+    if (flash.size) {
+      const touch = (fi) => flash.has(fi) || flash.has((fi + 1) % pct.length);
+      const rest = pct.filter((_, fi) => !touch(fi)), hit = pct.filter((_, fi) => touch(fi));
+      m = rest.reduce((s, v) => s + v, 0) / rest.length;
+      console.log(`motion budget without lightning: ${pctFmt(m)} (${rest.length} frame steps); flash steps (frames ${[...flash].join(",")}): ` +
+        `mean ${pctFmt(hit.reduce((s, v) => s + v, 0) / hit.length)}, max ${pctFmt(Math.max(...hit))}`);
+    }
+    console.log(`motion target ${tn} ${l}–${h}%${flash.size ? " (without lightning)" : ""}: ${m < l ? "BELOW (too still for " + tn + ")" : m > h ? "ABOVE (too busy for " + tn + ")" : "inside"}`);
   }
 }
 

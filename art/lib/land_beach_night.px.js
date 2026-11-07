@@ -415,6 +415,7 @@ function landBeach() {
       return [
         stamp("_bn_back", 0, 0),
         ...sky(Object.assign({}, SKY, { layer: "stars" }, animate ? { motion: { twinkle: { n: 8, maxY: 190 } } } : {})),
+        ...stage("sky", animate), // (over the stamped back: keep sky items above the horizon)
         function (c) { clouds(c, st(c)) },
         function (c) { seaRows(c, st(c)) },
         function (c) { var m = st(c); lace(c, m, BREAK[0].y + 6, BREAK[1].y - BREAK[1].h - 2, 130, m.on ? Math.round(WIND * 16 * Math.sin(TAU * m.p)) : 0) },
@@ -434,8 +435,13 @@ function landBeach() {
     // the near one's foam washes up the sand and drains back. The moon path shimmers, clouds stream
     // and tear, grass bends in gusts (each clump at its own phase), sand blows off the lip, a few stars
     // twinkle. Moon, starfish and dune shapes stay still (reel.sh checks _beach_night_loop_static).
-    anim(N + "_loop", { w: W, h: H, frames: 48, fps: 12 }, ...beachItems(true))
+    anim(N + "_loop", { w: W, h: H, frames: landFrames(o, 48), fps: 12 }, ...landOwn(o, 48, beachItems(true)))
   }
 
-  return { define: beachScene, geo: { horizon: SKY.horizon, water: SKY.horizon, ground: 560, frames: 48, accent: "silver", legacy: "beach_night", sky: SKY } }
+  // Fireflies (night_scene fireflies.place): over the dune grass, from the dune line.
+  function flies(place) {
+    if (place !== "grass" && place !== "shore") return null
+    return { near: [110, duneTop(150) - 44, 90, 30], far: [226, duneTop(262) - 36, 100, 22] }
+  }
+  return { define: beachScene, geo: { flies: flies, horizon: SKY.horizon, water: SKY.horizon, ground: 560, frames: 48, accent: "silver", legacy: "beach_night", sky: SKY } }
 }

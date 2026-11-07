@@ -59,7 +59,10 @@ var NS_WORDS = {
   lampOn: ["jetty", "bank"],
   bankAt: { far: [420, 470], mid: [470, 520], near: [520, 560] },
   fliesCount: { few: 6, some: 8, many: 12 },
-  fliesAlong: ["river", "meadow"],
+  fliesAlong: ["river", "meadow"],                                // old spelling of place: bank, grass
+  fliesPlace: ["shore", "bank", "grass", "auto"],
+  fogDepth: ["far", "mid", "front"],
+  lightningDistance: ["far", "near"],
   rain: { light: 0.3, medium: 0.5, heavy: 1 },
   rainAngle: { none: 0, light: 1 / 6, strong: 1 / 4 },
   fog: { thin: { height: 30, amp: 4 }, medium: { height: 36, amp: 5 }, thick: { height: 60, amp: 7 } },
@@ -106,8 +109,8 @@ var NS_FIELDS = {
   meteor: ["from", "to", "at", "dur"],
   weather: ["rain", "fog", "lightning"],
   rain: ["amount", "angle", "wind"],
-  fog: ["amount", "colour", "over", "drift", "subject"],
-  lightning: ["at"],
+  fog: ["amount", "colour", "over", "depth", "drift", "subject"],
+  lightning: ["at", "distance"],
   motion: ["budget"],
   ridges: ["type", "style", "ranges", "height", "peaks", "notch", "seed"],
   sea: ["type", "style"],
@@ -118,7 +121,7 @@ var NS_FIELDS = {
   valley: ["type", "floor", "seed"],
   river: ["type", "width", "wind", "flow", "grass"],
   lamp: ["type", "x", "on", "height", "deck", "side", "at"],
-  fireflies: ["type", "count", "along", "near", "far"],
+  fireflies: ["type", "count", "place", "along", "near", "far"],
   windows: ["type", "at", "houses", "lit"],
 }
 
@@ -257,14 +260,8 @@ function nsResolve(user) {
       wind: ro.wind === undefined ? 0 : nsWord("weather.rain.wind", ro.wind, { none: 0, gusts: 0.3, strong: 0.5 }, [0, 0.5]),
     }
   } else if (w.rain !== false && w.rain !== undefined) nsFail("weather.rain", "false, one of " + nsList(Object.keys(NS_WORDS.rain)) + ", or { amount, angle, wind }")
-  cfg.lightning = null
-  if (w.lightning) {
-    var lo = typeof w.lightning === "object" ? w.lightning : {}
-    nsOnly("weather.lightning", lo, NS_FIELDS.lightning)
-    if (cfg.frames < 48) nsFail("weather.lightning", "needs length ≥ 4 s (at most one strike per 4 s, rules.md); length is " + secs + " s")
-    if (cfg.accent !== "silver") nsFail("weather.lightning", "lightning is a light source: it needs accent \"silver\" (one accent per scene); accent is " + nsShow(cfg.accent))
-    cfg.lightning = { at: lo.at }
-  }
+  cfg.lightning = nsResolveLightning(w, cfg)
+  if (cfg.lightning && cfg.frames < 48) nsFail("weather.lightning", "needs length ≥ 4 s (at most one strike per 4 s, rules.md); length is " + secs + " s")
 
   // --- sky
   nsOnly("sky", s.sky, NS_FIELDS.sky)
@@ -362,12 +359,18 @@ function nsResolve(user) {
     nsWord(fp + ".colour", colour, NS_WORDS.fogColour)
     if (NS_WORDS.quietFog.indexOf(colour) < 0 && !fo.subject)
       nsFail(fp + ".colour", nsShow(colour) + " is a light fog: fog behind the focal point is quiet (rules.md, valley + lake lessons) — use \"dark\" or \"dim\", or set \"subject\": true when the fog is the subject")
-    var over = fo.over === undefined ? types[0] : nsOneOf(fp + ".over", fo.over, types)
-    var at = types.indexOf(over), lay = cfg.terrain[at]
-    var top = over === "lake" ? lay.shore + 4 : over === "valley" ? lay.floor - 4 : cfg.horizon - 4
-    if (over === "river") nsFail(fp + ".over", "fog over the river is not built yet: use \"ridges\" or \"valley\"")
-    cfg.fog = { after: at, top: top, height: fa.height, amp: fa.amp, role: NS_WORDS.fogColour[colour],
+    var depth = fo.depth === undefined ? null : nsOneOf(fp + ".depth", fo.depth, NS_WORDS.fogDepth)
+    if (depth && fo.over !== undefined) nsFail(fp + ".over", "use either over (a terrain type) or depth (far/mid/front), not both")
+    // depth: far = just in front of the farthest layer; mid = on the water / valley floor; front =
+    // low veils in front of the near land (lights drawn after it shine through).
+    var over = depth === "far" ? types[0] : depth === "mid" ? (["lake", "valley", "river"].filter(function (k) { return types.indexOf(k) >= 0 })[0] || types[types.length - 1])
+      : depth === "front" ? null : fo.over === undefined ? types[0] : nsOneOf(fp + ".over", fo.over, types)
+    if (over === "river") over = types.indexOf("valley") >= 0 ? "valley" : types[0]
+    var at = over === null ? types.length - 1 : types.indexOf(over), lay = cfg.terrain[at]
+    var top = over === null ? null : over === "lake" ? lay.shore + 4 : over === "valley" ? lay.floor - 4 : cfg.horizon - 4
+    cfg.fog = { after: at, top: top, height: fa.height, amp: fa.amp, role: NS_WORDS.fogColour[colour], depth: depth || "far",
       dir: nsWord(fp + ".drift", fo.drift === undefined ? "right" : fo.drift, NS_WORDS.drift) }
+    if (over === null) Object.assign(cfg.fog, nsFrontFog(fa.height, 543))
   } else if (w.fog !== false && w.fog !== undefined) nsFail("weather.fog", "false, one of " + nsList(Object.keys(NS_WORDS.fog)) + ", or { amount, colour, over, drift }")
 
   // --- lights
@@ -394,9 +397,15 @@ function nsResolve(user) {
       if (o.at === "river" && types.indexOf("river") < 0) nsFail(p + ".at", "\"river\" needs a river terrain; use \"left\" or \"right\"")
     } else if (l.type === "fireflies") {
       o.count = nsWord(p + ".count", l.count, NS_WORDS.fliesCount, [6, 14])
-      o.along = nsOneOf(p + ".along", l.along, NS_WORDS.fliesAlong)
-      if (o.along === "river" && types.indexOf("river") < 0) nsFail(p + ".along", "\"river\" needs a river terrain")
-      if (o.along === "meadow" && types.indexOf("valley") < 0) nsFail(p + ".along", "\"meadow\" needs a valley terrain")
+      // place: from the terrain's own geometry (river banks, the valley meadow, the lake's shore).
+      var ul = (user.lights || [])[i] || {}, place = ul.place !== undefined ? nsOneOf(p + ".place", ul.place, NS_WORDS.fliesPlace)
+        : ul.along !== undefined ? { river: "bank", meadow: "grass" }[nsOneOf(p + ".along", ul.along, NS_WORDS.fliesAlong)]
+        : l.place || { river: "bank", meadow: "grass" }[l.along] || "auto"
+      var has = { bank: types.indexOf("river") >= 0, grass: types.indexOf("valley") >= 0 || types.indexOf("river") >= 0, shore: types.indexOf("lake") >= 0 }
+      if (place === "auto") place = ["bank", "grass", "shore"].filter(function (k) { return has[k] })[0]
+      if (!place || !has[place]) nsFail(p + ".place", (place ? nsShow(place) + " needs " + { bank: "a river", grass: "a valley or river", shore: "a lake" }[place] : "this terrain has no shore, bank or grass") + " (built: bank = river, grass = valley/river, shore = lake)")
+      o.place = place
+      o.along = place === "bank" ? "river" : place === "grass" ? (types.indexOf("valley") >= 0 ? "meadow" : "river") : "shore"
       if (l.near) o.near = nsArea(p + ".near", l.near)
       if (l.far) o.far = nsArea(p + ".far", l.far)
       if (cfg.rain) log.push("note: fireflies in rain (they shelter in rain; consider removing them)")
@@ -409,9 +418,13 @@ function nsResolve(user) {
     log.push("note: lamp + fireflies — the lamp is the focal point; keep fireflies few")
 
   // --- objects outside Phase 1 (rules: needs an exception line in art/CLAUDE.md)
-  if (cfg.lights.some(function (l) { return l.type === "windows" })) log.push("objects: a far village (Phase 1: '" + cfg.name + "' needs an exception line in art/CLAUDE.md)")
-  if (lamps.length) log.push("objects: lamp post" + (lamps.some(function (l) { return l.on === "jetty" }) ? " + jetty" : "") + " (Phase 1: '" + cfg.name + "' needs an exception line in art/CLAUDE.md)")
+  var objs = []
+  if (cfg.lights.some(function (l) { return l.type === "windows" })) objs.push("small far village")
+  if (lamps.length) objs.push("lamp post")
+  if (lamps.some(function (l) { return l.on === "jetty" })) objs.push("jetty")
+  if (objs.length) log.push("objects: " + objs.join(", ") + " — standard elements (art/CLAUDE.md), no exception needed")
   if (cfg.frames !== 72 && cfg.fog) log.push("fog sways (drift needs the 6 s / 72-frame loop)")
+  if (cfg.lightning) log.push("lightning: " + cfg.lightning.distance + ", flash frames " + nsFlashFrames(cfg.lightning, cfg.frames).join(",") + " of " + cfg.frames)
   return cfg
 }
 
@@ -549,6 +562,8 @@ function nightScene(spec, verbose) {
   if (cfg.fog) {
     var fo = { top: cfg.fog.top, height: cfg.fog.height, role: cfg.fog.role, amp: cfg.fog.amp }
     if (F === 72) Object.assign(fo, { motion: "drift", period: 180, drift: 90, dir: cfg.fog.dir }) // 1.25 px/frame
+    if (cfg.fog.solid === false) fo.solid = false
+    if (cfg.fog.ragged) fo.ragged = true
     MIST = fog(fo)
   }
 
@@ -670,6 +685,13 @@ function nightScene(spec, verbose) {
       var rl = G.river(523), rr = G.river(490)
       near = near || [Math.floor(rl.x - rl.w / 2) - 50, 500, 44, 46] // left bank, just off the water
       far = far || [Math.ceil(rr.x + rr.w / 2) + 6, 470, 26, 40]     // right bank
+    } else if (l.along === "shore") {
+      // The lake's far shore: a band just above the waterline, around the village if there is one.
+      var sh = G.water.top, vl = cfg.lights.filter(function (v) { return v.type === "windows" })[0]
+      var cx0 = vl ? (vl.at === "right" ? 264 : vl.at === "left" ? 96 : 180) : 120
+      near = near || [Math.max(24, cx0 - 50), sh - 18, 100, 14]
+      far = far || [Math.min(W - 24 - 70, cx0 + 70), sh - 14, 70, 10]
+      path = { ax: [3, 4], ay: [2, 2] } // far away: small paths
     } else {
       near = near || [60, FLOOR + 10, 120, 40]
       far = far || [200, FLOOR, 100, 30]
@@ -693,20 +715,10 @@ function nightScene(spec, verbose) {
     }
   }
   if (cfg.lightning) {
-    var bx = MOON.x > 180 ? 90 : 270, tx = bx + 24
-    BOLT = lightning({ frames: F, at: cfg.lightning.at, sky: function (x, y) { return y < G.skyline[x] }, bolt: { from: [bx, cfg.horizon - 150], to: [tx, G.skyline[tx] - 1] } })
-    moving.push([bx - 40, 0, tx + 40, G.skyline[tx] + 2])
+    var LB = nsLightning(cfg.lightning, F, MOON, cfg.horizon, function (x) { return G.skyline[x] })
+    BOLT = LB.item; moving.push(LB.box)
   }
-  if (cfg.meteor) {
-    var mo = typeof cfg.meteor === "object" ? cfg.meteor : {}
-    var from = mo.from || (MOON.x >= 180 ? [40, 96] : [W - 40, 96]), to = mo.to || (MOON.x >= 180 ? [200, 176] : [W - 200, 176])
-    var mdx = Math.abs(to[0] - from[0]), mdy = Math.abs(to[1] - from[1])
-    if (!(mdx === mdy || mdx === 2 * mdy || mdy === 2 * mdx)) nsFail("sky.meteor", "the path must be 2:1 or 1:1 (regular stairs, rules.md); got " + mdx + ":" + mdy)
-    var seg = nsSegDist(MOON.x, MOON.y, from, to)
-    if (seg < MOON.r + 24) nsFail("sky.meteor", "the path passes " + Math.round(seg) + " px from the moon; keep it away (kit.md)")
-    if (from[1] < 84 || to[1] < 84) nsFail("sky.meteor", "the path enters the top safe zone (84 px)")
-    METEOR = meteor({ from: from, to: to, frames: F, at: mo.at !== undefined ? mo.at : F - 4, dur: mo.dur || 8 })
-  }
+  if (cfg.meteor) METEOR = nsMeteor(cfg.meteor, F, MOON, cfg.hidden === true)
 
   // Assemble, back to front (same order as the studies: lake_night, valley_night).
   var twinkleN = cfg.budget === "magical" ? 16 : 8
@@ -716,8 +728,8 @@ function nightScene(spec, verbose) {
       var it = animate ? nightRepeat(item, Math.max(1, Math.round(F / n))) : item
       return where ? clip(where, it) : it
     }
-    var out = nsSky(animate ? SKY_ANIM : SKY, cfg.hidden, MOON)
-    if (METEOR) out.push(METEOR)
+    var out = nsSky(animate ? SKY_ANIM : SKY, cfg.hidden, MOON, METEOR ? [METEOR] : [])
+    if (BOLT) out.push(BOLT) // sky stage: between the sky and the land (the land covers the bolt's foot)
     layers.forEach(function (ls, i) {
       out.push.apply(out, ls(animate))
       if (MIST && cfg.fog.after === i) out.push(MIST)
@@ -728,7 +740,6 @@ function nightScene(spec, verbose) {
     LAMPS.forEach(function (L) { out.push.apply(out, L.back); out.push.apply(out, L.light); out.push(L.post) }) // post after its light
     VILLAGES.forEach(function (V) { out.push(V.draw(animate)) })
     FLIES.forEach(function (f) { out.push(rep(f, 36)) })
-    if (BOLT) out.push(BOLT)
     if (RAIN) out.push(rep(RAIN, 24))
     return out
   }
@@ -766,16 +777,18 @@ function nsSegDist(px, py, a, b) {
  * lighter, dithered out from 0.6 r to r + 14 — the moon behind overcast, never a crisp shape.
  * Relies on nightSky's item order: gradient, base, stars, disk, halo, clouds.
  */
-function nsSky(opts, hidden, moon) {
-  var items = nightSky(opts)
-  if ((hidden === true || hidden === "glow") && items.length > 4) { // (layer "stars" has no moon)
-    items[3] = function () {}
-    items[4] = hidden === true ? function () {} : function (c) {
-      var r0 = moon.r * 0.6, r1 = moon.r + 14 // one step, fading out by Bayer threshold: no edge, no disk
-      c.light(function (x, y) { var d = Math.hypot(x - moon.x, y - moon.y); return d < r0 || (d < r1 && bayer4(x, y) < (r1 - d) / (r1 - r0)) }, 1)
-    }
-  }
-  return items
+function nsSky(opts, hidden, moon, after) {
+  var items = nightSky(opts), mid = after || []
+  if (opts.layer === "stars") return items.concat(mid) // beach: its clouds are drawn later, over these
+  if (opts.layer === "back") mid = []                  // no stars in the stamped back: nothing goes there
+  // Order: gradient, base, stars → `after` (meteor) → moon disk, halo → clouds; a hidden moon's
+  // glow comes after the clouds (it lights them from behind). So meteors pass behind clouds.
+  var glow = hidden === "glow" ? function (c) {
+    var r0 = moon.r * 0.6, r1 = moon.r + 14 // one step, fading out by Bayer threshold: no edge, no disk
+    c.light(function (x, y) { var d = Math.hypot(x - moon.x, y - moon.y); return d < r0 || (d < r1 && bayer4(x, y) < (r1 - d) / (r1 - r0)) }, 1)
+  } : null
+  var hide = hidden === true || hidden === "glow"
+  return items.slice(0, 3).concat(mid, hide ? [] : [items[3], items[4]], [items[5]], glow ? [glow] : [])
 }
 
 // ---------------------------------------------------------------- land terrains (ported studies)
@@ -811,8 +824,11 @@ function nsResolveLand(user, log) {
   var cfg = { name: user.name, log: log, recipe: L.study, land: L, geo: geo, M: M }
   cfg.accent = nsOneOf("accent", user.accent === undefined ? geo.accent : user.accent, NS_WORDS.accent)
   cfg.frames = geo.frames
-  if (user.length !== undefined && nsWord("length", user.length, NS_WORDS.length, [1, 6]) * NS_FPS !== geo.frames)
-    nsFail("length", "the " + L.study + " loop is " + geo.frames / NS_FPS + " s (" + geo.frames + " frames); changing it is not built yet")
+  if (user.length !== undefined) {
+    var lf = nsWord("length", user.length, NS_WORDS.length, [1, 6]) * NS_FPS
+    if (lf % geo.frames) nsFail("length", "the " + L.study + " loop is " + geo.frames / NS_FPS + " s: use a whole multiple of it (≤ 6 s)")
+    cfg.frames = lf
+  }
   var moods = user.mood === undefined ? L.mood : typeof user.mood === "string" ? user.mood.split(/\s*,\s*|\s+and\s+/) : user.mood
   moods.forEach(function (m, i) { nsOneOf("mood[" + i + "]", m, NS_WORDS.mood) })
   cfg.mood = moods
@@ -823,9 +839,12 @@ function nsResolveLand(user, log) {
   // Sky: the study's own; the JSON may set moon.hidden and stars.
   var us = user.sky || {}
   nsOnly("sky", us, NS_FIELDS.sky)
-  ;["horizon", "clouds", "meteor"].forEach(function (k) {
-    if (k in us) nsFail("sky." + k, "not expressible yet for " + L.study + " (the study fixes its " + k + "); the JSON can set sky.moon.hidden and sky.stars")
+  ;["horizon", "clouds"].forEach(function (k) {
+    if (k in us) nsFail("sky." + k, "not expressible yet for " + L.study + " (the study fixes its " + k + "); the JSON can set sky.moon.hidden, sky.stars and sky.meteor")
   })
+  cfg.meteor = us.meteor || false
+  if (us.meteor && typeof us.meteor === "object") nsOnly("sky.meteor", us.meteor, NS_FIELDS.meteor)
+  else if (us.meteor !== undefined && us.meteor !== true && us.meteor !== false) nsFail("sky.meteor", "true, false or { from, to, at, dur }")
   if (us.moon) {
     nsOnly("sky.moon", us.moon, NS_FIELDS.moon)
     ;["shape", "x", "y"].forEach(function (k) { if (k in us.moon) nsFail("sky.moon." + k, "not expressible yet for " + L.study + " (its land is lit from the study's moon); use sky.moon.hidden") })
@@ -837,7 +856,14 @@ function nsResolveLand(user, log) {
   // Weather
   var w = user.weather || {}
   nsOnly("weather", w, NS_FIELDS.weather)
-  if (w.lightning) nsFail("weather.lightning", "not built yet for " + L.study)
+  cfg.lightning = nsResolveLightning(w, cfg)
+  if (cfg.lightning && cfg.frames < 48) {
+    if (user.length !== undefined) nsFail("weather.lightning", "needs length ≥ 4 s (at most one strike per 4 s, rules.md)")
+    cfg.frames = Math.ceil(48 / geo.frames) * geo.frames
+    log.push("rule: lightning → loop " + cfg.frames / NS_FPS + " s (≤ 1 strike per 4 s); the study's own motion repeats " + cfg.frames / geo.frames + "×")
+  }
+  if (cfg.lightning) log.push("lightning: " + cfg.lightning.distance + ", flash frames " + nsFlashFrames(cfg.lightning, cfg.frames).join(",") + " of " + cfg.frames)
+  if (cfg.meteor && cfg.rain) nsFail("sky.meteor", "no meteor through rain cloud: set false or remove the rain")
   cfg.rain = null
   if (w.rain) {
     var ro = typeof w.rain === "object" ? w.rain : { amount: w.rain }
@@ -867,20 +893,36 @@ function nsResolveLand(user, log) {
     if (NS_WORDS.quietFog.indexOf(colour) < 0 && !fo.subject)
       nsFail(fp + ".colour", nsShow(colour) + " is a light fog: fog behind the focal point is quiet (rules.md) — use \"dark\" or \"dim\", or \"subject\": true")
     if (fo.over !== undefined) nsOneOf(fp + ".over", fo.over, [t.type])
-    // Low over the water: just below the far shore (lake lesson: shore + 2…6); else at the horizon.
-    var top = geo.water !== null ? geo.water + 4 : geo.horizon - 4
-    cfg.fog = { top: top, height: fa.height, amp: fa.amp, role: NS_WORDS.fogColour[colour], dir: nsWord(fp + ".drift", fo.drift === undefined ? "right" : fo.drift, NS_WORDS.drift) }
+    var depth = fo.depth === undefined ? "far" : nsOneOf(fp + ".depth", fo.depth, NS_WORDS.fogDepth)
+    // far: low over the water just below the far shore (lake lesson: shore + 2…6), else at the
+    // horizon; mid: a third of the way down the land; both behind the near land (stage "back").
+    // front: low veils in front of the near land (stage "front"), lights shine through.
+    var top = depth === "mid" ? Math.round(geo.horizon + 0.3 * (geo.ground - geo.horizon)) : geo.water !== null ? geo.water + 4 : geo.horizon - 4
+    cfg.fog = { top: top, height: fa.height, amp: fa.amp, depth: depth, role: NS_WORDS.fogColour[colour], dir: nsWord(fp + ".drift", fo.drift === undefined ? "right" : fo.drift, NS_WORDS.drift) }
+    if (depth === "front") Object.assign(cfg.fog, nsFrontFog(fa.height, Math.min(543, (geo.view ? geo.view.y1 : 560) - 4)))
   } else if (w.fog !== false && w.fog !== undefined) nsFail("weather.fog", "false, one of " + nsList(Object.keys(NS_WORDS.fog)) + ", or { amount, colour, over, drift }")
 
-  // Lights: the study's own, on or off
-  var lights = user.lights === undefined ? (L.lights || []) : user.lights.map(function (l) { return l.type })
+  // Lights: the study's own (city, jungle fireflies) on or off; fireflies anywhere the land has a
+  // shore or grass (geo.flies, from the study's own geometry).
+  var ul = user.lights === undefined ? (L.lights || []).map(function (lt) { return { type: lt } }) : user.lights
   if (user.lights === undefined && L.lights) log.push("lights: " + nsShow(L.lights) + " (recipe)")
-  lights.forEach(function (lt, i) {
-    if ((L.lights || []).indexOf(lt) < 0) nsFail("lights[" + i + "].type", nsShow(lt) + " is not built yet for " + L.study + (L.lights ? " (it has: " + nsList(L.lights) + ")" : " (it has no lights)"))
+  var lights = ul.map(function (l) { return l.type })
+  cfg.flies = null
+  ul.forEach(function (l, i) {
+    var p = "lights[" + i + "]"
+    if (l.type === "fireflies") {
+      var place = l.place !== undefined ? nsOneOf(p + ".place", l.place, NS_WORDS.fliesPlace) : "auto"
+      if (l.along !== undefined || l.near || l.far) nsFail(p, "on " + L.study + " use place (shore/bank/grass/auto); areas come from the study's geometry")
+      var pick = place === "auto" ? ["bank", "grass", "shore"].filter(function (k) { return geo.flies(k) })[0] : geo.flies(place) ? place : null
+      if (!pick) nsFail(p + ".place", (place === "auto" ? "no place for fireflies on " : nsShow(place) + " is not on ") + L.study + ": " + (geo.fliesWhy || "it has " + ["bank", "grass", "shore"].filter(function (k) { return geo.flies(k) }).join(", ")))
+      cfg.flies = { place: pick, count: l.count === undefined ? 8 : nsWord(p + ".count", l.count, NS_WORDS.fliesCount, [6, 14]), own: geo.flies(pick) === "own" }
+      if (cfg.flies.own && l.count !== undefined) log.push("note: the jungle's own fireflies keep their count")
+      log.push("fireflies: " + pick + (cfg.flies.own ? " (the study's own)" : " (areas from the study's geometry)"))
+    } else if ((L.lights || []).indexOf(l.type) < 0) nsFail(p + ".type", nsShow(l.type) + " is not built yet for " + L.study + (L.lights ? " (it has: " + nsList(L.lights) + ")" : ""))
+    else if (Object.keys(l).length > 1) nsFail(p, "the " + L.study + " study's " + l.type + " have no options yet")
   })
-  user.lights && user.lights.forEach(function (l, i) { if (Object.keys(l).length > 1) nsFail("lights[" + i + "]", "the " + L.study + " study's " + l.type + " have no options yet") })
   cfg.city = lights.indexOf("city") >= 0
-  cfg.fireflies = lights.indexOf("fireflies") >= 0
+  cfg.fireflies = !!cfg.flies
   if (cfg.fireflies && cfg.accent !== "warm") nsFail("accent", "fireflies need accent \"warm\" (kit.md)")
   if (cfg.city && cfg.accent === "silver") nsFail("accent", "\"silver\" is for scenes where the moon is the only light; the city needs \"warm\" or \"neon\"")
   if (cfg.fireflies && cfg.rain) log.push("note: fireflies in rain (they shelter in rain; consider removing them)")
@@ -895,17 +937,27 @@ function nsBuildLand(cfg, verbose) {
   var view = geo.view || { x0: 0, x1: W, y1: geo.ground } // harbour: the window opening
   if (cfg.rain) moving.push([0, 0, W, geo.ground + 14])
   if (cfg.fog) moving.push([0, cfg.fog.top - cfg.fog.amp - 8, W, cfg.fog.top + cfg.fog.height + cfg.fog.amp + 8])
+  var LB = cfg.lightning ? nsLightning(cfg.lightning, F, MOON, geo.horizon, function () { return geo.horizon }, true) : null // box only: the palette isn't set yet
+  if (LB) moving.push(LB.box)
+  var FL = cfg.flies && !cfg.flies.own ? geo.flies(cfg.flies.place) : null
+  if (FL) [FL.near, FL.far].forEach(function (a) { moving.push([a[0] - 16, a[1] - 10, a[0] + a[2] + 16, a[1] + a[3] + 10]) })
   function stage(name, animate) {
     function rep(item, n) { return animate ? nightRepeat(item, Math.max(1, Math.round(F / n))) : item }
     var out = []
-    if (name === "back" && cfg.fog) {
+    if (name === "sky") { // between the sky and the land: the land covers the bolt's foot, ground never flashes
+      if (LB) out.push(nsLightning(cfg.lightning, F, MOON, geo.horizon, function () { return geo.horizon }).item)
+    }
+    if ((name === "back" && cfg.fog && cfg.fog.depth !== "front") || (name === "front" && cfg.fog && cfg.fog.depth === "front")) {
       var fo = { top: cfg.fog.top, height: cfg.fog.height, role: cfg.fog.role, amp: cfg.fog.amp }
+      if (cfg.fog.solid === false) fo.solid = false
+      if (cfg.fog.ragged) fo.ragged = true
       // Drift at 1.25 px/frame in any loop (72 f: the approved period 180 / 90 px).
       Object.assign(fo, F === 72 ? { motion: "drift", period: 180, drift: 90, dir: cfg.fog.dir } : { motion: "drift", drift: Math.round(1.25 * F), dir: cfg.fog.dir })
       // Over water that carries the city's reflections: veils only, the lights shine through (rules.md).
       if (geo.water !== null && cfg.city) { fo.solid = false; fo.amp = Math.max(fo.amp, 8) } // wavy veils: mist, not a stripe
       out.push(fog(fo))
     }
+    if (name === "front" && FL) out.push(rep(fireflies({ count: cfg.flies.count, near: FL.near, far: FL.far, path: { ax: [5, 6], ay: [3, 3] } }), 36))
     if (name === "front" && cfg.rain) {
       if (geo.water !== null) {
         // Rings on the open water below the fog; over a city's reflections, light mode breaks the dashes.
@@ -920,8 +972,9 @@ function nsBuildLand(cfg, verbose) {
   var o = {
     name: cfg.name, accent: cfg.accent, city: cfg.city,
     // Neon is two-hued: cyan along the waterfront and quay, pink on the towers and upper city.
-    cityLower: cfg.city && cfg.accent === "neon" ? { chain: NIGHT_ACCENTS.neon.chain2, rows: NS_NEON_ROWS } : undefined, fireflies: cfg.fireflies, moon: cfg.hidden === false,
-    sky: function (opts) { return nsSky(opts, cfg.hidden, MOON) },
+    cityLower: cfg.city && cfg.accent === "neon" ? { chain: NIGHT_ACCENTS.neon.chain2, rows: NS_NEON_ROWS } : undefined,
+    fireflies: !!(cfg.flies && cfg.flies.own), moon: cfg.hidden === false, frames: F === geo.frames ? undefined : F,
+    sky: function (opts) { return nsSky(opts, cfg.hidden, MOON, cfg.meteor ? [nsMeteor(cfg.meteor, F, MOON, cfg.hidden === true)] : []) }, // meteor behind the clouds
     skyOpts: cfg.stars === null ? undefined : function (opts) {
       return Object.assign({}, opts, { stars: cfg.stars ? Object.assign({}, opts.stars || {}, { density: cfg.stars }) : false })
     },
@@ -934,4 +987,57 @@ function nsBuildLand(cfg, verbose) {
     cfg.log.forEach(function (l) { console.log("  " + l) })
   }
   return cfg
+}
+
+// ---------------------------------------------------------------- shared sky events and fog
+/** weather.lightning → { at, distance } (or null). Accent must be silver (one accent, rules.md). */
+function nsResolveLightning(w, cfg) {
+  if (!w.lightning) {
+    if (w.lightning !== false && w.lightning !== undefined) nsFail("weather.lightning", "false, true, \"far\", \"near\" or { distance, at }")
+    return null
+  }
+  var lo = typeof w.lightning === "object" ? w.lightning : typeof w.lightning === "string" ? { distance: w.lightning } : {}
+  nsOnly("weather.lightning", lo, NS_FIELDS.lightning)
+  if (cfg.accent !== "silver") nsFail("weather.lightning", "lightning is a light source: it needs accent \"silver\" (one accent per scene); accent is " + nsShow(cfg.accent))
+  return { at: lo.at, distance: lo.distance === undefined ? "far" : nsOneOf("weather.lightning.distance", lo.distance, NS_WORDS.lightningDistance) }
+}
+
+/** Frames the strike touches (NIGHT_LIGHTNING_PATTERN: 4 frames from `at`). */
+function nsFlashFrames(L, F) {
+  var at = L.at !== undefined ? L.at : Math.floor(hash2(800, 0, 0) * F), out = []
+  for (var k = 0; k < NIGHT_LIGHTNING_PATTERN.length; k++) out.push((at + k) % F)
+  return out
+}
+
+/**
+ * One strike per loop, drawn in the sky stage (the land covers its foot; ground never flashes).
+ * far: a short thin bolt down to the horizon on the side away from the moon, the sky lifted one
+ * step only around it; near: a tall bolt, the whole sky up one step. skyTop(x): first land row.
+ */
+function nsLightning(L, F, MOON, horizon, skyTop, boxOnly) {
+  var far = L.distance === "far", bx = MOON.x > 180 ? 84 : 262, tx = bx + (far ? 10 : 24)
+  var y0 = far ? horizon - 80 : Math.max(100, horizon - 170), cx = (bx + tx) / 2, cy = (y0 + horizon) / 2
+  // far: the lift fades out by Bayer threshold from half way (no edge: a crisp disc reads as a moon)
+  var sky = far ? function (x, y) { var d = Math.hypot((x - cx) / 80, (y - cy) / 70); return y < skyTop(x) && (d < 0.5 || (d < 1 && bayer4(x, y) < (1 - d) / 0.5)) }
+    : function (x, y) { return y < skyTop(x) }
+  var item = boxOnly ? null : lightning({ frames: F, at: nsFlashFrames(L, F)[0], sky: sky, bolt: { from: [bx, y0], to: [tx, horizon - 1], forks: far ? 0.2 : 0.35 } })
+  return { item: item, box: far ? [cx - 82, cy - 72, cx + 82, Math.max(cy + 72, horizon + 2)] : [0, 0, NS_W, horizon + 2] }
+}
+
+/** sky.meteor → item: 2:1 path away from the moon, once per loop (rules.md, kit.md). */
+function nsMeteor(m, F, MOON, moonHidden) {
+  var mo = typeof m === "object" ? m : {}, W = NS_W
+  var from = mo.from || (MOON.x >= 180 ? [40, 96] : [W - 40, 96]), to = mo.to || (MOON.x >= 180 ? [200, 176] : [W - 200, 176])
+  var mdx = Math.abs(to[0] - from[0]), mdy = Math.abs(to[1] - from[1])
+  if (!(mdx === mdy || mdx === 2 * mdy || mdy === 2 * mdx)) nsFail("sky.meteor", "the path must be 2:1 or 1:1 (regular stairs, rules.md); got " + mdx + ":" + mdy)
+  var seg = nsSegDist(MOON.x, MOON.y, from, to)
+  if (!moonHidden && seg < MOON.r + 24) nsFail("sky.meteor", "the path passes " + Math.round(seg) + " px from the moon; keep it away (kit.md)")
+  if (from[1] < 84 || to[1] < 84) nsFail("sky.meteor", "the path enters the top safe zone (84 px)")
+  return meteor({ from: from, to: to, frames: F, at: mo.at !== undefined ? mo.at : F - 4, dur: mo.dur || 8 })
+}
+
+/** Front fog: low veils (no solid band, wavy) ending at `bottom`; lights drawn after shine through. */
+function nsFrontFog(height, bottom) {
+  var h = Math.max(height, 50)
+  return { top: bottom - h, height: h, solid: false, amp: 8, ragged: true }
 }

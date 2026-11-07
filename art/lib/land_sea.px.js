@@ -293,16 +293,23 @@ function landSea() {
     var sky = landSky(P, o), stage = landStage(o, time === "night")
     scene(N, { w: W, h: H, bg: "U" },
       ...sky(SKY_OPTS[time]),
+      ...stage("sky", false),
       ...seaItems(false, o.moon, stage),
       ...P.end, ...stage("front", false),
     )
     // Seamless loop: 24 frames at 12 fps (2 s). The reflection shimmers (main motion), wave rows
     // bob 1 px in turn, the foam advances and pulls back with the wet edge; rocks and dry sand rest.
-    anim(N + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    anim(N + "_loop", { w: W, h: H, frames: landFrames(o, 24), fps: 12 }, ...landOwn(o, 24, [
       ...sky(Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+      ...stage("sky", true),
       ...seaItems(true, o.moon, stage),
-      ...P.end, ...stage("front", true))
+      ...P.end, ...stage("front", true)]))
   }
 
-  return { define: seaScene, geo: { horizon: HORIZON, water: HORIZON, shore: SHORE, ground: 560, frames: 24, accent: "silver", legacy: "night", sky: SKY_OPTS.night } }
+  // Fireflies (night_scene fireflies.place "shore"): over the dry sand behind the wet line, by the rocks.
+  function flies(place) {
+    if (place !== "shore") return null
+    return { near: [130, wetLine(180) + 14, 120, 36], far: [24, wetLine(60) + 8, 80, 24] }
+  }
+  return { define: seaScene, geo: { flies: flies, horizon: HORIZON, water: HORIZON, shore: SHORE, ground: 560, frames: 24, accent: "silver", legacy: "night", sky: SKY_OPTS.night } }
 }

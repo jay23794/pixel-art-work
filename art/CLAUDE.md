@@ -8,6 +8,10 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
 ## Phase 1 scope
 - Landscapes and light only: sky, sun/moon, clouds, mountains, desert, sea, jungle, haze.
 - No objects, vehicles or characters.
+- **Standard elements** (approved for any scene, no per-scene exception needed; JSON scenes and
+  the night-director may use them): **small far village** (dark house silhouettes with 1 px lit
+  windows, `windows` light), **lamp post** (`lamp`), **jetty** (`lamp` `on: "jetty"`). Anything
+  outside this list still needs the user's approval and an exception line below.
 - **Exception: `harbour_night`** (showcase) may have simple far buildings (dark shapes with lit
   window dots) and an interior window frame + sill (silhouette). Boats appear only as small light
   dots on the water, never as boat shapes. Still no piers, vehicles or characters.

@@ -79,7 +79,7 @@ lists what is allowed. Unknown fields are errors.
 | `moon.hidden` | `false` · `"half"` (lower half behind a cloud) · `"glow"` (no disk: a dim dithered glow behind overcast) · `true` (no moon; its position still sets the light direction) | |
 | `stars` | `false` · `low` 0.5 · `medium` 1 · `high` 1.5 (density; maxY = horizon − 90) | 0.2–3.4 |
 | `clouds` | `none` · `low` (cumulus 0.6) · `medium` (cumulus + stratus 0.8) · `high` (1.2) | |
-| `meteor` | `true` (2:1 path away from the moon, once per loop) · `false` · `{ from, to, at, dur }` | |
+| `meteor` | `true` (2:1 path away from the moon, once per loop) · `false` · `{ from, to, at, dur }`; any terrain; sky order: stars → meteor → moon disk/halo → clouds (→ a hidden moon's glow), so meteors pass behind clouds | |
 
 ### `terrain` (back to front, in list order)
 | type | options | built |
@@ -97,7 +97,7 @@ lists what is allowed. Unknown fields are errors.
 | type | options | built |
 |---|---|---|
 | `lamp` | `on: "jetty"` (needs a lake): `x` `left` 96 · `center` 180 · `right` 264, `deck` y, `height` `short` 40 · `tall` 70 (24–90) · `on: "bank"` (needs a river): `side` `left/right`, `at` `far/mid/near`, `height`; the bank spot is computed from the river (the row with the most water below the post) | yes |
-| `fireflies` | `count` `few` 6 · `some` 8 · `many` 12 (6–14) · `along` `river` (areas from the banks) / `meadow`; optional `near`/`far` `[x, y, w, h]` | yes |
+| `fireflies` | `count` `few` 6 · `some` 8 · `many` 12 (6–14) · `place` `bank` (river) · `grass` (valley meadow, river grass, beach dune grass, the jungle clearing) · `shore` (lake far shore, sea beach, beach dune lip) · `auto` (bank → grass → shore), areas from that terrain's geometry; not on desert, mountains or the harbour (no near shore/grass); old `along` `river`/`meadow` = bank/grass; optional `near`/`far` `[x, y, w, h]` (plain terrain) | yes |
 | `windows` | a small far village: `at` `river` (both banks at the river's source) · `left` · `right` · `houses` `few` 5 · `some` 8 · `many` 12 (3–14) · `lit` `low` 0.4 · `medium` 0.6 · `high` 0.8 (share of window slots); dark houses in a cluster (two staggered rows), 1 px core windows, ~3% flicker, bright ones reflect in the water | yes |
 | `city` | the harbour's far city (on/off; follows the accent: warm amber, neon pink/cyan); only with `sea` `harbour` | yes |
 
@@ -105,8 +105,8 @@ lists what is allowed. Unknown fields are errors.
 | field | words → numbers |
 |---|---|
 | `rain` | `false` · `light` 0.3 · `medium` 0.5 · `heavy` 1, or `{ amount, angle: none 0 · light 1/6 · strong 1/4, wind: none · gusts 0.3 · strong 0.5 }`; ground 560; ripples on the lake/river and over lamp reflections come with it |
-| `fog` | `false` · `thin` (30 px) · `medium` (36) · `thick` (60), or `{ amount, colour, over, drift, subject }`: `colour` `dark` L · `dim` C (quiet) · `light` · `sky` · `teal` · `moon` (need `subject: true`); `over` a terrain type (sits just in front of it); `drift` `left/right` (drift at 6 s, sway otherwise) |
-| `lightning` | `false` · `true` · `{ at }`: needs length ≥ 4 s and accent `silver` |
+| `fog` | `false` · `thin` (30 px) · `medium` (36) · `thick` (60), or `{ amount, colour, over, depth, drift, subject }`: `colour` `dark` L · `dim` C (quiet) · `light` · `sky` · `teal` · `moon` (need `subject: true`); `depth` `far` (just in front of the farthest land / low over the far water) · `mid` (on the water or a third down the land) · `front` (low veils in front of the near land, no solid band, wavy top *and* bottom edges; lights drawn after it shine through), any terrain; or `over` a terrain type (plain terrain only, not with `depth`); `drift` `left/right` |
+| `lightning` | `false` · `true` = `"far"` · `"near"` · `{ distance, at }`: one strike per loop between the sky and the land (ground never flashes). `far`: a short bolt on the horizon away from the moon, the sky one step lighter around it; `near`: a tall bolt, the whole sky one step. Needs accent `silver` and ≥ 4 s (a land terrain with a 2 s loop is lengthened to 4 s; its own motion repeats). Flash frames are reported apart in the motion budget |
 
 ### `motion`
 `budget`: `calm` 0.1–2% · `magical` 0.2–1.5% · `dramatic` 2–5% of pixels changing per frame.
@@ -117,7 +117,8 @@ Reported by `reel.sh` against the measured budget (never fails). `magical` also 
 A **land** terrain is an approved study's whole land below the sky: `lib/land_<study>.px.js` holds
 the study's drawing (moved verbatim; the study calls the same function), so a JSON copy is pixel-
 identical by construction. A land terrain is the only entry in `terrain`. On top of it the JSON can
-set: `accent`, `sky.moon.hidden` (`"glow"`, `true`; hiding also drops the moon's reflections and
+set: `accent`, `length` (a whole multiple of the study's loop), `sky.meteor`, `weather.lightning`,
+`fireflies` (`place`), `fog.depth`, `sky.moon.hidden` (`"glow"`, `true`; hiding also drops the moon's reflections and
 patches), `sky.stars` (density or false), `weather.rain` (+ ripples on open water; over the city's
 reflections in light mode), `weather.fog` (low over the water, under the reflections, drifting 1.25
 px/frame; over the harbour's lit bay veils only), the neon accent (harbour: cyan waterfront and
@@ -126,9 +127,9 @@ Anything else is an error that says it isn't expressible yet.
 
 ### Not expressible yet (fixed by the studies)
 - **All lands:** horizon; moon `x`, `y`, `shape`, `"half"`; clouds (amount, place) — so the "more
-  cloud in rain" rule can't apply; meteor; lightning; loop length; static masks (only beach has
-  one); combining a land with other terrain or with lamps/windows; the moonlit rims stay when the
-  moon is hidden (they set the light direction).
+  cloud in rain" rule can't apply; static masks (only beach has one); combining a land with other
+  terrain or with lamps/windows; the moonlit rims stay when the moon is hidden (they set the light
+  direction); fireflies only where the study has a near shore or grass.
 - **mountains:** the four ranges and the hero peak (profiles, faces, ledges, cracks, boulders,
   slabs), snow, haze drift, twinkle n 7.
 - **desert:** far mesas, the hero mesa (strata, caprock, flare, cast shadow), dune layers, pebbles.

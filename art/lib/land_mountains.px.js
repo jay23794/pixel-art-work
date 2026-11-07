@@ -465,15 +465,17 @@ function landMountains() {
     for (var sh = -2; sh <= 2; sh++) scene("_land_" + time + "_" + sh, { w: W, h: H }, ...landItems(sh))
     scene(N, { w: W, h: H, bg: "U" },
       ...sky(SKY_OPTS[time]),
+      ...stage("sky", false),
       stamp("_land_" + time + "_0", 0, 0),
       ...P.end, ...stage("back", false), ...stage("front", false))
     // Seamless loop: 24 frames at 12 fps (2 s). Only haze, clouds, snow glints and stars move.
-    anim(N + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    anim(N + "_loop", { w: W, h: H, frames: landFrames(o, 24), fps: 12 }, ...landOwn(o, 24, [
       ...sky(Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+      ...stage("sky", true),
       function (c) { c.stamp("_land_" + time + "_" + hazeShift(c.phase), 0, 0) },
       function (c) { if (time === "dusk") snowShimmer(c) },
-      ...P.end, ...stage("back", true), ...stage("front", true))
+      ...P.end, ...stage("back", true), ...stage("front", true)]))
   }
 
-  return { define: mountainScene, geo: { horizon: 282, water: null, ground: 560, frames: 24, accent: "silver", legacy: "night", sky: SKY_OPTS.night } }
+  return { define: mountainScene, geo: { flies: function () { return null }, fliesWhy: "the mountains have no shore, bank or grass", horizon: 282, water: null, ground: 560, frames: 24, accent: "silver", legacy: "night", sky: SKY_OPTS.night } }
 }

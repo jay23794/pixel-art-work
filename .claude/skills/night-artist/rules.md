@@ -36,6 +36,11 @@ Hard rules first, then lessons learned the hard way (each one cost a round).
 - **Motion budget** (`reel.sh` reports % of pixels changing per frame): calm 0.1–2%, dramatic
   (breaking waves, storms) ≤ ~5%. ~0% is fine for intentionally subtle scenes (mountains,
   desert: star twinkle only). The budget is reported, never enforced — judge it against the mood.
+- **Storms aim for ≤ 5%; up to ~5.5% is acceptable when rain is required by the brief** (dramatic;
+  stormy_sea: surf + rain + far lightning measured 5.14% without the flash frames, accepted). Reach the storm with light-to-medium rain and few gusts
+  first (beach surf alone is 4.56%; heavy rain + gusts measured 6.1%); add density only if the
+  budget allows. Lightning flash frames are reported apart (`reel.sh`: "without lightning") and
+  don't count against the budget; the flash itself stays within the lightning safety rules.
 - **Lightning safety:** at most one strike per 4 s; the flash is the sky up **one** step for
   **≤ 3 frames**; never a full-screen bright flash; ground and foreground never flash.
 - Loops: 24 frames at 12 fps (2 s) default; 48 for rare events (lightning, meteor, waves);

@@ -67,7 +67,8 @@ console.log = log;
 const def = p.assets.get(`${spec.name}_loop`);
 const frames = def.opts.frames, fps = def.opts.fps;
 const [, budget, lo, hi] = /budget (\w+) \(([\d.]+)–([\d.]+)%\)/.exec(said.join("\n"));
-console.log(`scene ${spec.name} ${file} cycle ${frames / fps} budget ${budget} ${lo} ${hi}`);
+const flash = /flash frames ([\d,]+) of/.exec(said.join("\n"))?.[1] ?? "-";
+console.log(`scene ${spec.name} ${file} cycle ${frames / fps} budget ${budget} ${lo} ${hi} flash ${flash}`);
 
 if (compare) {
   const study = loadProject(join(ART, "studies", `${compare}.px.js`));

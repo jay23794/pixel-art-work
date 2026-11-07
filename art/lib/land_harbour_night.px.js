@@ -192,16 +192,18 @@ function landHarbour() {
 
     scene(N, { w: W, h: H, bg: "U" },
       ...sky(SKY),
+      ...stage("sky", false),
       ...harbourItems(false),
     )
     // Seamless loop: 24 frames at 12 fps (2 s). ~3% of the city lights burst once (nightFlicker),
     // reflections shimmer 1 px sideways, boat lights drift, a few stars twinkle. Frame, wall, moonlight
     // patch and hills stay still.
-    anim(N + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    anim(N + "_loop", { w: W, h: H, frames: landFrames(o, 24), fps: 12 }, ...landOwn(o, 24, [
       ...sky(Object.assign({}, SKY, { motion: { twinkle: { n: 9, maxY: 236 } } })),
+      ...stage("sky", true),
       ...harbourItems(true),
-    )
+    ]))
   }
 
-  return { define: harbourScene, geo: { horizon: SHORE, water: SHORE, shore: SHORE, ground: VIEW.y1, frames: 24, accent: "warm", legacy: "harbour_night", sky: SKY, view: VIEW } }
+  return { define: harbourScene, geo: { flies: function () { return null }, fliesWhy: "its only shore is across the bay (too far for fireflies); the nearest ground is the window sill", horizon: SHORE, water: SHORE, shore: SHORE, ground: VIEW.y1, frames: 24, accent: "warm", legacy: "harbour_night", sky: SKY, view: VIEW } }
 }

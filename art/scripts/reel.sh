@@ -53,8 +53,8 @@ if [[ -n "$scene" ]]; then
   # scene.mjs validates the JSON (clear errors, exit 2) and writes the wrapper study.
   info="$(node "$ART/scripts/scene.mjs" "$scene")" || exit 2
   echo "$info" | grep -v '^scene '
-  read -r _ study FILE _ cycle _ bname blo bhi <<<"$(grep '^scene ' <<<"$info")"
-  target="$bname:$blo:$bhi"
+  read -r _ study FILE _ cycle _ bname blo bhi _ flash <<<"$(grep '^scene ' <<<"$info")"
+  target="$bname:$blo:$bhi:$flash"
   if [[ -z "$seconds" ]]; then seconds="$(node -e "const c=$cycle; console.log(Math.ceil(10 / c) * c)")"; fi
 else
   FILE="$ART/studies/$study.px.js"

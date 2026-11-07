@@ -102,6 +102,7 @@ Bad: > 20 (reads as sparks), with silver/neon accent (wrong colour).
 | `motion` | `"sway"` (any loop; `sway` 4–8 px); `"drift"` with a 72-frame loop, `period: 180, drift: 90` (1.25 px/frame) | `drift: 180` (2.5 px/frame slides); drift in a 24-frame loop; `period: 90` (small repeating bumps read as waves) |
 Fog bands are veils that turn what's behind cool and one/two steps lighter; only the last band is solid.
 `solid: false`: veils only (+1, +2, +1), for mist over lit water (lights show through); use amp ~8.
+`ragged: true`: the bottom edge drifts/sways like the band edges (front fog never ends in a straight line).
 `motion: "drift"` works in any loop: `drift` = 1.25 px/frame × frames (30 for 24 frames).
 
 ## Lightning — `night_lightning.px.js`

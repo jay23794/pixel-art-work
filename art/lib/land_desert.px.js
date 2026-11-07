@@ -325,6 +325,7 @@ function landDesert() {
     scene("_desert_land_" + time, { w: W, h: H }, ...landItems())
     scene(N, { w: W, h: H, bg: "U" },
       ...sky(SKY_OPTS[time]),
+      ...stage("sky", false),
       farMesas,
       farPlain,
       ...stage("back", false),
@@ -332,15 +333,16 @@ function landDesert() {
       ...P.end, ...stage("front", false),
     )
     // Seamless loop: 24 frames at 12 fps (2 s). Mesa, dunes and foreground are the stamped part.
-    anim(N + "_loop", { w: W, h: H, frames: 24, fps: 12 },
+    anim(N + "_loop", { w: W, h: H, frames: landFrames(o, 24), fps: 12 }, ...landOwn(o, 24, [
       ...sky(Object.assign({}, SKY_OPTS[time], { motion: SKY_MOTION[time] })),
+      ...stage("sky", true),
       farMesas,
       function (c) { farPlain(c, time === "dusk" ? c.phase : undefined) },
       ...stage("back", true),
       function (c) { c.stamp("_desert_land_" + time, 0, 0) },
       function (c) { if (time === "dusk") crestGrains(c) },
-      ...P.end, ...stage("front", true))
+      ...P.end, ...stage("front", true)]))
   }
 
-  return { define: desertScene, geo: { horizon: HORIZON, water: null, ground: 560, frames: 24, accent: "silver", legacy: "night", sky: SKY_OPTS.night } }
+  return { define: desertScene, geo: { flies: function () { return null }, fliesWhy: "the desert has no shore, bank or grass", horizon: HORIZON, water: null, ground: 560, frames: 24, accent: "silver", legacy: "night", sky: SKY_OPTS.night } }
 }

@@ -29,6 +29,8 @@ var NIGHT_FOG_ROLES = { haze: "Cc", sky: "uk", teal: "fh", moon: "Nn", ground: "
  *   amp (7): edge waviness in px;  sway (6): sideways sway in px per loop;  w (360);  seed (0)
  *   motion ("sway" | "drift"), dir (1 = drift right, -1 = left), drift (90): px per loop,
  *   period (w): noise period in px (shape size), a multiple of 60, or 90
+ *   ragged (false): true = the bottom edge is wavy too (the same drifting/swaying noise as the band
+ *   edges, its own seed), so a veil band never ends in a straight line (front fog)
  *   solid (true): false = veils only, densest in the middle (+1, +2, …, +1): no flat band and no hard
  *   bottom edge, so lights and reflections show through (mist over a lit bay)
  */
@@ -66,7 +68,8 @@ function fog(opts) {
     for (var x = 0; x < W; x++) {
       var e = []
       for (var i = 0; i < nb; i++) e.push(edge(i, x))
-      for (var y = Math.max(0, e[0]); y < bottom; y++) {
+      var end = o.ragged ? Math.min(c.h, edge(nb + 1, x) - Math.round(height * (2 - dens) / nb)) : bottom // edge(nb + 1) ≈ bottom + one band
+      for (var y = Math.max(0, e[0]); y < end; y++) {
         var b = 0
         while (b + 1 < nb && y >= e[b + 1]) b++
         if (b === nb - 1 && o.solid !== false) { c.px(x, y, keys[keys.length - 1]); continue }
