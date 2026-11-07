@@ -1,0 +1,10 @@
+{
+  "name": "stormy_sea",
+  "about": "Director: \"stormy sea at night with lightning far away\".",
+  "accent": "silver",
+  "mood": "stormy",
+  "terrain": [{ "type": "sea", "style": "surf" }],
+  "lights": [],
+  "weather": { "rain": { "amount": 0.2, "angle": "light" }, "lightning": "far" },
+  "motion": { "budget": "dramatic" }
+}

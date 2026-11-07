@@ -1,0 +1,11 @@
+{
+  "name": "foggy_desert",
+  "about": "Director: \"foggy desert at night with a meteor and no moon\".",
+  "accent": "silver",
+  "mood": "eerie",
+  "sky": { "moon": { "hidden": true }, "stars": "low", "meteor": true },
+  "terrain": [{ "type": "dunes" }],
+  "lights": [],
+  "weather": { "fog": { "amount": 110, "colour": "dim", "depth": "front" } },
+  "motion": { "budget": "calm" }
+}

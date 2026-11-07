@@ -1,0 +1,11 @@
+{
+  "name": "quiet_lake",
+  "about": "Director: \"quiet mountain lake at night with a small warm-lit cabin village and fireflies\".",
+  "accent": "warm",
+  "mood": "peaceful",
+  "sky": { "moon": { "shape": "crescent", "hidden": false }, "stars": "medium" },
+  "terrain": [{ "type": "ridges" }, { "type": "lake" }],
+  "lights": [{ "type": "windows", "at": "left", "houses": "few" }, { "type": "fireflies", "count": "many", "place": "auto" }],
+  "weather": { "rain": false },
+  "motion": { "budget": "calm" }
+}
