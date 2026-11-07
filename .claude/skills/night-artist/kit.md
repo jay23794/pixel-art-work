@@ -60,6 +60,7 @@ Moon glitter runs straight down from `moon.x`; on a winding river wrap it in pxl
 ## City — `night_city.px.js`
 `cityLights({ shore, ridge, w, downtown, streets, houses, roads, towers, shops, quay, keys, flicker })` → `fn(c, phase|null)`, `fn.lights`.
 Good: `downtown.w` 40–70 (a clear peak), towers 5–8 narrow (6–12 px), streets 4–8 rows.
+Neon: `lower: { chain: NIGHT_ACCENTS.neon.chain2, rows: 10 }` = cyan waterfront/quay, pink towers (~50/50).
 Bad: no downtown peak (uniform carpet), towers > 14 px wide (read as objects), `houses` > 120.
 
 ## Fireflies — `night_fireflies.px.js`
@@ -100,6 +101,8 @@ Bad: > 20 (reads as sparks), with silver/neon accent (wrong colour).
 | `amp` | 5–10 px | 0 (ruled lines) |
 | `motion` | `"sway"` (any loop; `sway` 4–8 px); `"drift"` with a 72-frame loop, `period: 180, drift: 90` (1.25 px/frame) | `drift: 180` (2.5 px/frame slides); drift in a 24-frame loop; `period: 90` (small repeating bumps read as waves) |
 Fog bands are veils that turn what's behind cool and one/two steps lighter; only the last band is solid.
+`solid: false`: veils only (+1, +2, +1), for mist over lit water (lights show through); use amp ~8.
+`motion: "drift"` works in any loop: `drift` = 1.25 px/frame × frames (30 for 24 frames).
 
 ## Lightning — `night_lightning.px.js`
 `lightning({ frames, at, pattern, horizon | sky, bolt, keys, seed })` → item.

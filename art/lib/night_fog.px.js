@@ -29,6 +29,8 @@ var NIGHT_FOG_ROLES = { haze: "Cc", sky: "uk", teal: "fh", moon: "Nn", ground: "
  *   amp (7): edge waviness in px;  sway (6): sideways sway in px per loop;  w (360);  seed (0)
  *   motion ("sway" | "drift"), dir (1 = drift right, -1 = left), drift (90): px per loop,
  *   period (w): noise period in px (shape size), a multiple of 60, or 90
+ *   solid (true): false = veils only, densest in the middle (+1, +2, …, +1): no flat band and no hard
+ *   bottom edge, so lights and reflections show through (mist over a lit bay)
  */
 function fog(opts) {
   var K = nightKeys(), cool = nightCool(K), o = opts || {}, top = o.top !== undefined ? o.top : 380, height = o.height || 120
@@ -67,8 +69,8 @@ function fog(opts) {
       for (var y = Math.max(0, e[0]); y < bottom; y++) {
         var b = 0
         while (b + 1 < nb && y >= e[b + 1]) b++
-        if (b === nb - 1) { c.px(x, y, keys[keys.length - 1]); continue }
-        var k = step(c.get(x, y), b + 1)
+        if (b === nb - 1 && o.solid !== false) { c.px(x, y, keys[keys.length - 1]); continue }
+        var k = step(c.get(x, y), o.solid === false && b === nb - 1 ? 1 : Math.min(b + 1, 2))
         if (k) c.px(x, y, k)
       }
     }

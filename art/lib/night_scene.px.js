@@ -782,6 +782,7 @@ function nsSky(opts, hidden, moon) {
 // A land terrain is an approved study's whole land below the sky (lib/land_*.px.js, the same code
 // the study runs). The JSON can hide the moon, drop stars, change the accent, and add rain, fog,
 // ripples, city/fireflies on/off; the study fixes everything else (README: "not expressible yet").
+var NS_NEON_ROWS = 10 // street rows within this many px of the shore go cyan (≈ half the city lights)
 var NS_LANDS = {
   "ridges:alpine": { study: "mountains", fn: "landMountains", budget: "calm", mood: ["peaceful"] },
   "dunes:":        { study: "desert", fn: "landDesert", budget: "calm", mood: ["peaceful"] },
@@ -899,7 +900,10 @@ function nsBuildLand(cfg, verbose) {
     var out = []
     if (name === "back" && cfg.fog) {
       var fo = { top: cfg.fog.top, height: cfg.fog.height, role: cfg.fog.role, amp: cfg.fog.amp }
-      if (F === 72) Object.assign(fo, { motion: "drift", period: 180, drift: 90, dir: cfg.fog.dir })
+      // Drift at 1.25 px/frame in any loop (72 f: the approved period 180 / 90 px).
+      Object.assign(fo, F === 72 ? { motion: "drift", period: 180, drift: 90, dir: cfg.fog.dir } : { motion: "drift", drift: Math.round(1.25 * F), dir: cfg.fog.dir })
+      // Over water that carries the city's reflections: veils only, the lights shine through (rules.md).
+      if (geo.water !== null && cfg.city) { fo.solid = false; fo.amp = Math.max(fo.amp, 8) } // wavy veils: mist, not a stripe
       out.push(fog(fo))
     }
     if (name === "front" && cfg.rain) {
@@ -914,7 +918,9 @@ function nsBuildLand(cfg, verbose) {
     return out
   }
   var o = {
-    name: cfg.name, accent: cfg.accent, city: cfg.city, fireflies: cfg.fireflies, moon: cfg.hidden === false,
+    name: cfg.name, accent: cfg.accent, city: cfg.city,
+    // Neon is two-hued: cyan along the waterfront and quay, pink on the towers and upper city.
+    cityLower: cfg.city && cfg.accent === "neon" ? { chain: NIGHT_ACCENTS.neon.chain2, rows: NS_NEON_ROWS } : undefined, fireflies: cfg.fireflies, moon: cfg.hidden === false,
     sky: function (opts) { return nsSky(opts, cfg.hidden, MOON) },
     skyOpts: cfg.stars === null ? undefined : function (opts) {
       return Object.assign({}, opts, { stars: cfg.stars ? Object.assign({}, opts.stars || {}, { density: cfg.stars }) : false })

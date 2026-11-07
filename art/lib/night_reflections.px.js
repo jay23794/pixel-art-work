@@ -18,7 +18,7 @@ include("night_lights.px.js")
 function reflections(opts) {
   var K = nightKeys(), chain = K.state.chain, o = opts || {}, TOP = o.top
   var minV = o.minV !== undefined ? o.minV : 0.6, near = o.near !== undefined ? o.near : 14, s = o.seed || 0
-  function key(v) { return nightLightKey(K, v, chain) }
+  function key(v, ch) { return nightLightKey(K, v, ch || chain) }
   function shimmer(p, seed, a, b) {
     if (p === null || p === undefined) return 0
     var v = Math.sin(2 * Math.PI * (p + hash2(seed, a, b)))
@@ -33,7 +33,7 @@ function reflections(opts) {
       var len = Math.round(10 + 60 * (l.v - 0.6) * (0.5 + hash2(55 + s, i, 0))), y = TOP + 3 + Math.round(hash2(56 + s, i, 0) * 9), v = l.v * 0.75
       while (y < TOP + len) {
         var dash = 1 + Math.round(hash2(57 + s, i, y) * 2)
-        if (hash2(58 + s, i, y) > 0.25) c.rect(l.x + shimmer(p, 92 + s, i, y), y, 1, dash, key(v))
+        if (hash2(58 + s, i, y) > 0.25) c.rect(l.x + shimmer(p, 92 + s, i, y), y, 1, dash, key(v, l.ch))
         y += dash + 1 + Math.round(hash2(59 + s, i, y) * 3); v *= 0.88
       }
     })

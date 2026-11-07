@@ -168,7 +168,7 @@ function landHarbour() {
     nightPalette(o.accent || "warm", "harbour_night")
     var sky = landSky({ sky: nightSky }, o), stage = landStage(o, true)
     MOONLIGHT = o.moon !== false
-    var CITY = o.city === false ? null : cityLights({ shore: SHORE, ridge: HILLS_NEAR, keys: { tower: "U", edge: "B" } })
+    var CITY = o.city === false ? null : cityLights(Object.assign({ shore: SHORE, ridge: HILLS_NEAR, keys: { tower: "U", edge: "B" } }, o.cityLower ? { lower: o.cityLower } : {}))
     // Reflections: under every bright light, broken dashes dimming down the water; a moon glitter of
     // cold-rim dashes; boat lights (dots with a short reflection, no boat shapes).
     var REFL = reflections({ source: CITY || [], top: SHORE, moon: o.moon === false ? undefined : { x: MOON.x, y1: VIEW.y1, keys: ["N", "N"] },

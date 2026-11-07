@@ -15,6 +15,7 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   other objects.
 - **Exception: `lake_night`** may have one small wooden jetty and one lamp post on it (simple
   shapes, requested). No boats, buildings or figures.
+- **Exception: `harbour_rain`** (JSON scene): the same objects as `harbour_night`.
 - **Exception: `valley_rain`** (JSON scene) may have a small far village: dark house silhouettes
   with lit window dots (as harbour_night's far buildings). No figures, vehicles or near buildings.
 

@@ -21,8 +21,10 @@ Hard rules first, then lessons learned the hard way (each one cost a round).
   no halo rings: the sky one ramp step lighter, dithered out (Bayer) from ~0.6 r to r + 14, or
   nothing at all. Its light still sets the light direction. (night_scene: `hidden: "glow"` is
   applied automatically with rain; an explicit `hidden` in the JSON overrides it. A flat stepped
-  disc read as a pale full moon: the glow must have no edge.) lake_night predates this rule (upper
-  half of the moon visible above the cloud).
+  disc read as a pale full moon: the glow must have no edge.)
+- **Light rain + broken cloud may show a partial moon; the default remains the dim glow.**
+  lake_night (light rain, the moon's upper half above the cloud) is approved as such; its JSON keeps
+  `hidden: "half"` as an explicit override.
 - Moonlight through gaps (shafts, windows) turns what it crosses **cool** (`lightBeam`), not
   brighter in its own hue (jungle lesson: teal shafts looked like green glass).
 
@@ -78,6 +80,14 @@ Hard rules first, then lessons learned the hard way (each one cost a round).
 - `breakers()` defaults to old night letters: pass `keys` translated with `nightRoles()` in a
   plain night scene (kit.md).
 - Present the still before animating; commit only after approval.
+
+- **Mist over a lit bay: veils only, under the reflections, drifting.** A solid band on top hid
+  harbour_rain's city reflections (round 1); on the water under them it still read as a flat stripe,
+  because +2 steps over flat water is flat. What reads as mist: no solid band (`fog({ solid: false })`),
+  wavy edges (amp 8), densest in the middle and fading out at the bottom, drifting 1.25 px/frame.
+- **Neon is two hues: split them by place, not at random.** Cyan along the waterfront and quay, pink
+  on the towers and upper city, about half each (`cityLights({ lower: { chain, rows: 10 } })`);
+  reflections take each light's own hue.
 
 ## Lessons from lake_night (the first scene made with this skill: 4 rounds for the still)
 - **Mist is quiet.** "Low over the water" = just *below* the shoreline (top = shore + 2…6), thin

@@ -26,6 +26,7 @@ every rule it applied. The wrapper study it builds is `art/out/_scenes/<name>.px
 | `jungle_night.json` | `studies/jungle.px.js` (night) as JSON | identical: still + 24 loop frames |
 | `harbour_night.json` | `studies/harbour_night.px.js` as JSON | identical: still + 24 loop frames |
 | `beach_night.json` | `studies/beach_night.px.js` as JSON | identical: still + 48 loop frames + static mask |
+| `harbour_rain.json` | harbour_night + light rain, fog low over the bay, neon accent, no moon (JSON only) | pending approval |
 
 Static masks: lake_night and valley_night's generated masks guard more pixels than the studies'
 hand-written ones (the render is identical; only what the static check guards differs). The
@@ -118,8 +119,9 @@ the study's drawing (moved verbatim; the study calls the same function), so a JS
 identical by construction. A land terrain is the only entry in `terrain`. On top of it the JSON can
 set: `accent`, `sky.moon.hidden` (`"glow"`, `true`; hiding also drops the moon's reflections and
 patches), `sky.stars` (density or false), `weather.rain` (+ ripples on open water; over the city's
-reflections in light mode), `weather.fog` (low over the water, under the reflections; sways in 2 s
-loops), lights on/off (`city` for the harbour, `fireflies` for the jungle), `mood`, `motion.budget`.
+reflections in light mode), `weather.fog` (low over the water, under the reflections, drifting 1.25
+px/frame; over the harbour's lit bay veils only), the neon accent (harbour: cyan waterfront and
+quay, pink towers and upper city), lights on/off (`city` for the harbour, `fireflies` for the jungle), `mood`, `motion.budget`.
 Anything else is an error that says it isn't expressible yet.
 
 ### Not expressible yet (fixed by the studies)

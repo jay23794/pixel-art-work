@@ -1,0 +1,11 @@
+{
+  "name": "harbour_rain",
+  "about": "harbour_night in light rain: no moon, fog low over the bay, the city in neon (pink/cyan) instead of warm.",
+  "accent": "neon",
+  "mood": "lonely, peaceful",
+  "sky": { "moon": { "hidden": true } },
+  "terrain": [{ "type": "sea", "style": "harbour" }],
+  "lights": [{ "type": "city" }],
+  "weather": { "rain": "light", "fog": { "amount": "thin", "colour": "dark" } },
+  "motion": { "budget": "calm" }
+}

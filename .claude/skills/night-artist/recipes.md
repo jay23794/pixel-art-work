@@ -90,6 +90,18 @@ through land modules `art/lib/land_<study>.px.js`, which the studies call too.
 - **Motion:** rain + river ripples (`nightRepeat(…, 3)`), river flow, fog drift. **Cycle:** 72 f / 6 s.
   **Budget:** 0.85% (calm).
 
+## harbour_rain — `art/scenes/harbour_rain.json` (JSON only, variation of harbour_night; 2 rounds; pending approval)
+- **Changes from harbour_night:** light rain (0.3), no moon (`hidden: true`: no disk, halo, glitter
+  or moonlight patch), fog thin + `dark` low over the bay, accent `neon`.
+- **Builder applied:** no stars (rain); ring ripples on the bay + light-mode ripples over the city's
+  reflections; mist as veils only (amp 8, +1 +2 +1) under the reflections, drifting 30 px per 2 s;
+  neon split cyan waterfront/quay, pink towers/upper city (rows 10: 48% cyan). Clouds stay the study's.
+- **Pre-flight caught:** rainy sky (no stars), fog quiet (`dark`) behind the focal city, ripples to
+  break the reflections, moonlight patch/glitter off with the moon. **Missed:** the solid mist band hid
+  the city's reflections (round 1); then it read as a flat stripe and the neon was nearly all pink
+  (review). All fixes were builder/kit changes (stage order, `fog` `solid`, `cityLights` `lower`).
+- **Motion:** rain, ripples, fog drift, ~3% flicker. **Cycle:** 24 f / 2 s. **Budget:** 0.87% (calm).
+
 ## Choosing
 | brief has | start from |
 |---|---|

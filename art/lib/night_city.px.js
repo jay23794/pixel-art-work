@@ -21,6 +21,10 @@ include("night_lights.px.js")
  *   quay: true                       a row of lamps on the waterline
  *   keys: { tower: "R", edge: "B" }  night keys for the towers (harbour: "U", "B")
  *   flicker: { rate, frames, seed }  see nightFlicker
+ *   lower: { chain, rows }           two-hued accents (neon): the quay, shopfronts and street rows
+ *                                    within `rows` px of the shore in this chain (cyan), the rest
+ *                                    (towers, upper city) in the accent's chain (pink)
+ * Every light in .lights carries its chain (ch) for reflections().
  */
 function cityLights(opts) {
   var K = nightKeys(), chain = K.state.chain, o = opts || {}
@@ -33,19 +37,22 @@ function cityLights(opts) {
   var SHOPS = o.shops || [136, 236]
   var keys = o.keys || { tower: "R", edge: "B" }, FL = o.flicker || {}
   function density(x) { return 0.12 + 0.88 * Math.exp(-Math.pow((x - DT.x) / DT.w, 2)) }
-  function key(v) { return nightLightKey(K, v, chain) }
+  var LOW = o.lower || null
+  function chainAt(y, kind) { return LOW && (kind === "low" || y >= SHORE - LOW.rows) ? LOW.chain : chain }
+  function key(v, ch) { return nightLightKey(K, v, ch || chain) }
   // A dropped light (nightFlicker) shows a step dimmer.
   function flick(x, y, v, p) { return nightFlicker(x * 1000 + y, p, FL) ? v * 0.55 : v }
 
   function draw(c, p) {
     var LIGHTS = (draw.lights = [])
-    function light(x, y, v) {
+    function light(x, y, v, kind) {
       x = Math.round(x); y = Math.round(y)
       if (x < 0 || x >= W || y < RIDGE[x] + 2) return
       v = flick(x, y, v, p)
-      c.px(x, y, key(v))
-      if (v > 0.85 && hash2(41, x, y) > 0.5) c.px(x + 1, y, key(v * 0.8)) // a few 2-px lights
-      LIGHTS.push({ x: x, y: y, v: v })
+      var ch = chainAt(y, kind)
+      c.px(x, y, key(v, ch))
+      if (v > 0.85 && hash2(41, x, y) > 0.5) c.px(x + 1, y, key(v * 0.8, ch)) // a few 2-px lights
+      LIGHTS.push({ x: x, y: y, v: v, ch: ch })
     }
     // Streets parallel to the shore.
     STREETS.forEach(function (up, si) {
@@ -70,17 +77,17 @@ function cityLights(opts) {
       c.rect(tw[0], tw[2], 1, SHORE - tw[2], K(keys.edge))
       for (var y = tw[2] + 2; y < SHORE - 3; y += 3)
         for (var x = tw[0] + 1; x < tw[0] + tw[1] - 1; x += 2)
-          if (hash2(47, ti * 100 + x, y) < 0.32) { c.px(x, y, key(flick(x, y, 0.3 + 0.6 * hash2(48, x, y), p))); LIGHTS.push({ x: x, y: y, v: 0.5 }) }
+          if (hash2(47, ti * 100 + x, y) < 0.32) { c.px(x, y, key(flick(x, y, 0.3 + 0.6 * hash2(48, x, y), p))); LIGHTS.push({ x: x, y: y, v: 0.5, ch: chain }) }
     })
     // Street level downtown: lit shopfronts along the tower bases and the blocks between them.
     for (var x = SHOPS[0]; x < SHOPS[1]; x++) {
       var dd = density(x)
-      if (hash2(65, x, 0) < 0.75 * dd) light(x, SHORE - 2, 0.55 + 0.45 * hash2(65, x, 1) * dd)
-      if (hash2(65, x, 2) < 0.45 * dd) light(x, SHORE - 4, 0.4 + 0.5 * hash2(65, x, 3))
+      if (hash2(65, x, 0) < 0.75 * dd) light(x, SHORE - 2, 0.55 + 0.45 * hash2(65, x, 1) * dd, "low")
+      if (hash2(65, x, 2) < 0.45 * dd) light(x, SHORE - 4, 0.4 + 0.5 * hash2(65, x, 3), "low")
     }
     // Waterfront: quay lamps right on the waterline, evenly spaced, denser downtown.
     if (o.quay !== false)
-      for (var x = 4; x < W - 4; x += 3) if (hash2(66, x, 0) < 0.25 + 0.75 * density(x)) light(x, SHORE - 1, 0.62 + 0.38 * density(x) * hash2(66, x, 1))
+      for (var x = 4; x < W - 4; x += 3) if (hash2(66, x, 0) < 0.25 + 0.75 * density(x)) light(x, SHORE - 1, 0.62 + 0.38 * density(x) * hash2(66, x, 1), "low")
   }
   draw.lights = []
   return draw
