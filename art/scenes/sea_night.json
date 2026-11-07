@@ -1,0 +1,21 @@
+{
+  "name": "sea_night",
+  "about": "A calm open sea from a beach: the moon low on the right throws its column down the water; rocks, foam, wet sand. Port of studies/sea.px.js.",
+  "accent": "silver",
+  "length": "short",
+  "mood": "peaceful",
+  "terrain": [
+    {
+      "type": "sea",
+      "style": "calm"
+    }
+  ],
+  "lights": [],
+  "weather": {
+    "rain": false,
+    "fog": false
+  },
+  "motion": {
+    "budget": "calm"
+  }
+}

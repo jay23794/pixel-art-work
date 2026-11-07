@@ -1,0 +1,21 @@
+{
+  "name": "beach_night",
+  "about": "Breaking waves under a full moon, wind, a dune with grass and a starfish. Port of studies/beach_night.px.js.",
+  "accent": "silver",
+  "length": "medium",
+  "mood": "stormy",
+  "terrain": [
+    {
+      "type": "sea",
+      "style": "surf"
+    }
+  ],
+  "lights": [],
+  "weather": {
+    "rain": false,
+    "fog": false
+  },
+  "motion": {
+    "budget": "dramatic"
+  }
+}

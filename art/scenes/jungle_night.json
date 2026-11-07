@@ -1,0 +1,24 @@
+{
+  "name": "jungle_night",
+  "about": "Dense jungle; moonlight through a canopy gap onto a clearing, fireflies. Port of studies/jungle.px.js.",
+  "accent": "warm",
+  "length": "short",
+  "mood": "magical",
+  "terrain": [
+    {
+      "type": "jungle"
+    }
+  ],
+  "lights": [
+    {
+      "type": "fireflies"
+    }
+  ],
+  "weather": {
+    "rain": false,
+    "fog": false
+  },
+  "motion": {
+    "budget": "calm"
+  }
+}

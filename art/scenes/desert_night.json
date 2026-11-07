@@ -1,0 +1,20 @@
+{
+  "name": "desert_night",
+  "about": "A wide desert: far mesas, a hero mesa on the left third lit from the moon's side, dunes. Port of studies/desert.px.js.",
+  "accent": "silver",
+  "length": "short",
+  "mood": "peaceful",
+  "terrain": [
+    {
+      "type": "dunes"
+    }
+  ],
+  "lights": [],
+  "weather": {
+    "rain": false,
+    "fog": false
+  },
+  "motion": {
+    "budget": "calm"
+  }
+}

@@ -20,6 +20,16 @@ every rule it applied. The wrapper study it builds is `art/out/_scenes/<name>.px
 |---|---|---|
 | `lake_night.json` | `studies/lake_night.px.js` as JSON | identical: still + 72 loop frames |
 | `valley_night.json` | `studies/valley_night.px.js` as JSON | identical: still + 72 loop frames |
+| `mountains_night.json` | `studies/mountains.px.js` (night) as JSON | identical: still + 24 loop frames |
+| `desert_night.json` | `studies/desert.px.js` (night) as JSON | identical: still + 24 loop frames |
+| `sea_night.json` | `studies/sea.px.js` (night) as JSON | identical: still + 24 loop frames |
+| `jungle_night.json` | `studies/jungle.px.js` (night) as JSON | identical: still + 24 loop frames |
+| `harbour_night.json` | `studies/harbour_night.px.js` as JSON | identical: still + 24 loop frames |
+| `beach_night.json` | `studies/beach_night.px.js` as JSON | identical: still + 48 loop frames + static mask |
+
+Static masks: lake_night and valley_night's generated masks guard more pixels than the studies'
+hand-written ones (the render is identical; only what the static check guards differs). The
+mountains, desert, sea, jungle and harbour studies have no mask, so their JSON scenes have none.
 | `valley_rain.json` | valley_night + light rain + lit windows of a small far village instead of fireflies (JSON only) | pending approval |
 
 ## Format
@@ -77,7 +87,10 @@ lists what is allowed. Unknown fields are errors.
 | `lake` | `lines` `few` 5 · `some` 9 · `many` 14 (calm `F` lines); the shore is the horizon | yes |
 | `valley` | `floor` (default horizon + 52) · `seed`: mid ranges, teal meadow, near slopes closing in on the river | yes |
 | `river` | `width` `narrow` 80 · `medium` 120 · `wide` 160 · `wind` `low` 45 · `medium` 90 · `high` 135 · `flow` `slow` 0.2 · `medium` 0.4 · `fast` 0.8 px/frame · `grass` true/false; from the notch toward the viewer, moon glitter clipped to it | yes |
-| `sea`, `dunes`, `jungle` | — | not yet: an error names the study to start from |
+| `ridges` `style: "alpine"` | **land**: the mountains study (4 ranges, hero peak, snow) | yes |
+| `dunes` | **land**: the desert study (far mesas, hero mesa, dunes) | yes |
+| `sea` | **land**, `style` (required): `calm` (the sea study: open sea, moon column, rocks, beach) · `surf` (beach_night: breakers, dune, starfish, 4 s) · `harbour` (harbour_night: bay, hills, window view) | yes |
+| `jungle` | **land**: the jungle study (canopy gap, shafts, vines) | yes |
 
 ### `lights`
 | type | options | built |
@@ -85,7 +98,7 @@ lists what is allowed. Unknown fields are errors.
 | `lamp` | `on: "jetty"` (needs a lake): `x` `left` 96 · `center` 180 · `right` 264, `deck` y, `height` `short` 40 · `tall` 70 (24–90) · `on: "bank"` (needs a river): `side` `left/right`, `at` `far/mid/near`, `height`; the bank spot is computed from the river (the row with the most water below the post) | yes |
 | `fireflies` | `count` `few` 6 · `some` 8 · `many` 12 (6–14) · `along` `river` (areas from the banks) / `meadow`; optional `near`/`far` `[x, y, w, h]` | yes |
 | `windows` | a small far village: `at` `river` (both banks at the river's source) · `left` · `right` · `houses` `few` 5 · `some` 8 · `many` 12 (3–14) · `lit` `low` 0.4 · `medium` 0.6 · `high` 0.8 (share of window slots); dark houses in a cluster (two staggered rows), 1 px core windows, ~3% flicker, bright ones reflect in the water | yes |
-| `city` | — | not yet (see harbour_night) |
+| `city` | the harbour's far city (on/off; follows the accent: warm amber, neon pink/cyan); only with `sea` `harbour` | yes |
 
 ### `weather`
 | field | words → numbers |
@@ -97,6 +110,34 @@ lists what is allowed. Unknown fields are errors.
 ### `motion`
 `budget`: `calm` 0.1–2% · `magical` 0.2–1.5% · `dramatic` 2–5% of pixels changing per frame.
 Reported by `reel.sh` against the measured budget (never fails). `magical` also doubles star twinkle.
+
+## Land terrains (the ported studies)
+
+A **land** terrain is an approved study's whole land below the sky: `lib/land_<study>.px.js` holds
+the study's drawing (moved verbatim; the study calls the same function), so a JSON copy is pixel-
+identical by construction. A land terrain is the only entry in `terrain`. On top of it the JSON can
+set: `accent`, `sky.moon.hidden` (`"glow"`, `true`; hiding also drops the moon's reflections and
+patches), `sky.stars` (density or false), `weather.rain` (+ ripples on open water; over the city's
+reflections in light mode), `weather.fog` (low over the water, under the reflections; sways in 2 s
+loops), lights on/off (`city` for the harbour, `fireflies` for the jungle), `mood`, `motion.budget`.
+Anything else is an error that says it isn't expressible yet.
+
+### Not expressible yet (fixed by the studies)
+- **All lands:** horizon; moon `x`, `y`, `shape`, `"half"`; clouds (amount, place) — so the "more
+  cloud in rain" rule can't apply; meteor; lightning; loop length; static masks (only beach has
+  one); combining a land with other terrain or with lamps/windows; the moonlit rims stay when the
+  moon is hidden (they set the light direction).
+- **mountains:** the four ranges and the hero peak (profiles, faces, ledges, cracks, boulders,
+  slabs), snow, haze drift, twinkle n 7.
+- **desert:** far mesas, the hero mesa (strata, caprock, flare, cast shadow), dune layers, pebbles.
+- **sea (calm):** horizon 286, shore 452 and the wet line, wave rows and bob, foam, the rock outcrop,
+  the moon column's width.
+- **jungle:** canopy gap, crown layers, clearing, moon shafts (`lightBeam` lift), vines, roots, its
+  own fog bands; firefly count and areas (on/off only).
+- **harbour:** window opening and sill, moonlight patch, cloud bank, hills, every `cityLights`
+  option (downtown, streets, houses, roads, towers, shops, quay, flicker), boats, star density 3.4.
+- **beach (surf):** breaker spots, peel and wind, wash, streaming clouds, grass, blown sand, the
+  starfish, the moon path, the 4 s cycle.
 
 ## Rules the builder applies
 Values the JSON sets explicitly are errors; values inherited from the recipe are fixed and logged.

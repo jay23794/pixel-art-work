@@ -116,6 +116,10 @@ separate from the engine: never touch `src/`, `scenes/` or `tests/` from here.
   recipe (lake_night, valley_night), maps friendly words to kit numbers and applies the night rules.
   `art/scripts/reel.sh --scene art/scenes/<file>.json` exports still + loop with every check;
   `node art/scripts/scene.mjs <json> --compare <study>` pixel-compares with a study.
+- **Land modules** `lib/land_<study>.px.js` (`landMountains`, `landDesert`, `landSea`, `landJungle`,
+  `landHarbour`, `landBeach`): each approved study's drawing wrapped in one function (its names stay
+  local), `define(time, o)` defines the assets; the study calls it with no `o`, night_scene passes
+  name/accent/sky/stage hooks (`lib/land.px.js`). Edit a ported study's drawing there, not in the study.
 - `.claude/skills/pixelfx` (patch-gg/pixelfx, MIT) is installed as a reference for effect
   techniques (water, foam, spray, weather). Studies don't depend on it: borrow ideas, not code that
   paints with alpha or additive light.

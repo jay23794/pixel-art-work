@@ -1,0 +1,21 @@
+{
+  "name": "mountains_night",
+  "about": "Four mountain ranges under a clear sky; the moon upper right lights the hero peak's rim and snow. Port of studies/mountains.px.js.",
+  "accent": "silver",
+  "length": "short",
+  "mood": "peaceful",
+  "terrain": [
+    {
+      "type": "ridges",
+      "style": "alpine"
+    }
+  ],
+  "lights": [],
+  "weather": {
+    "rain": false,
+    "fog": false
+  },
+  "motion": {
+    "budget": "calm"
+  }
+}

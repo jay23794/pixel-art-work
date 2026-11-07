@@ -4,8 +4,8 @@
 // applied), and prints the facts reel.sh needs. Format: art/scenes/README.md.
 //
 //   node art/scripts/scene.mjs <scene.json>                    → prints: name, cycle seconds, budget
-//   node art/scripts/scene.mjs <scene.json> --compare <study>  → pixel-compares the still and every
-//                                                               loop frame with art/studies/<study>.px.js
+//   node art/scripts/scene.mjs <scene.json> --compare <study>  → pixel-compares <name>, every frame of
+//        <name>_loop and _<name>_loop_static with the same assets in art/studies/<study>.px.js
 // Exit codes: 0 ok, 2 bad JSON / validation error, 6 compare found differences.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -72,11 +72,12 @@ console.log(`scene ${spec.name} ${file} cycle ${frames / fps} budget ${budget} $
 if (compare) {
   const study = loadProject(join(ART, "studies", `${compare}.px.js`));
   let bad = 0;
-  for (const asset of [compare, `${compare}_loop`]) {
-    const a = study.assets.get(asset), b = p.assets.get(asset.replace(compare, spec.name));
+  for (const asset of [spec.name, `${spec.name}_loop`, `_${spec.name}_loop_static`]) { // same asset names in both
+    const a = study.assets.get(asset), b = p.assets.get(asset);
+    if (!a && !b) continue;
     if (!a || !b) { console.log(`compare ${asset}: missing in ${a ? "the JSON scene" : "the study"}`); bad++; continue; }
-    const fa = a.kind === "scene" ? [{ img: study.image(asset) }] : study.frames(asset);
-    const fb = a.kind === "scene" ? [{ img: p.image(asset.replace(compare, spec.name)) }] : p.frames(asset.replace(compare, spec.name));
+    const fa = a.kind === "anim" ? study.frames(asset) : [{ img: study.image(asset) }];
+    const fb = a.kind === "anim" ? p.frames(asset) : [{ img: p.image(asset) }];
     if (fa.length !== fb.length) { console.log(`compare ${asset}: ${fa.length} vs ${fb.length} frames`); bad++; continue; }
     let diff = 0, first = null, frameDiffs = 0;
     fa.forEach((f, i) => {

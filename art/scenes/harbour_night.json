@@ -1,0 +1,25 @@
+{
+  "name": "harbour_night",
+  "about": "A night view through a window across a dark bay to a far city of warm lights; crescent moon upper left. Port of studies/harbour_night.px.js.",
+  "accent": "warm",
+  "length": "short",
+  "mood": "peaceful, cozy",
+  "terrain": [
+    {
+      "type": "sea",
+      "style": "harbour"
+    }
+  ],
+  "lights": [
+    {
+      "type": "city"
+    }
+  ],
+  "weather": {
+    "rain": false,
+    "fog": false
+  },
+  "motion": {
+    "budget": "calm"
+  }
+}

@@ -4,6 +4,8 @@ Each recipe is a working scene in `art/studies/`. Copy its skeleton and settings
 details. All are 360×640, 12 fps. Motion budgets are what `reel.sh` measured.
 (The five dusk + night studies are ports: their terrain draws in old keys and is remapped with
 `nightRemap()`. New scenes don't need that: draw with `nightKeys()` directly.)
+Every recipe is also a JSON scene in `art/scenes/` (pixel-identical); the six older ones run
+through land modules `art/lib/land_<study>.px.js`, which the studies call too.
 
 ## mountains_night — `studies/mountains.px.js`
 - **Modules:** nightSky; terrain: 4 ranges from `ridgeProfile` (sharp peaks), stamped `_land_` parts.
